@@ -3,6 +3,7 @@ import {
   AUSTRALIA_MISSION_ID,
   AUSTRALIA_PASSPORT_STAMP_ID,
   EGYPT_MISSION_ID,
+  EGYPT_PASSPORT_STAMP_ID,
   JAIPUR_MISSION_ID,
   KENYA_MISSION_ID,
   KENYA_PASSPORT_STAMP_ID,
@@ -11,12 +12,15 @@ import {
   SCOTLAND_PASSPORT_STAMP_ID,
   createDefaultProgress,
   getEgyptBuildJournal,
+  hasEgyptReflectionDraft,
   isAustraliaMissionCompleted,
   isEgyptBuildCompleted,
   isEgyptDiscoverCompleted,
+  isEgyptMissionCompleted,
   isEgyptPerformEvidenceComplete,
   isEgyptPerformStarted,
   isEgyptPracticeCompleted,
+  isGlobalAdventureCompleted,
   isJaipurMissionCompleted,
   isKenyaMissionCompleted,
   isScotlandMissionCompleted,
@@ -179,9 +183,17 @@ function stripUnknownAndUnsafeKeys(raw: Record<string, unknown>): {
 }
 
 function resolveFrontierLabel(progress: LocalProgressV1): string {
+  if (isGlobalAdventureCompleted(progress)) {
+    return 'Global Explorer Completed (5/5 Countries)';
+  }
   const egyptEntry = progress.missionProgress[EGYPT_MISSION_ID];
+  if (isEgyptMissionCompleted(progress)) {
+    return 'Egypt Completed (Chamber Unsealed)';
+  }
   if (isEgyptPerformEvidenceComplete(progress)) {
-    return 'Egypt · PERFORM Complete (Final Self-Reflection Pending)';
+    return hasEgyptReflectionDraft(progress)
+      ? 'Egypt · Final Self-Reflection Draft Saved'
+      : 'Egypt · PERFORM Complete (Final Self-Reflection Pending)';
   }
   if (isEgyptPerformStarted(progress)) {
     return 'Egypt · PERFORM Stage';
@@ -225,6 +237,7 @@ function getCompletedCountries(progress: LocalProgressV1): CountryId[] {
   if (isKenyaMissionCompleted(progress)) done.push('kenya');
   if (isScotlandMissionCompleted(progress)) done.push('scotland');
   if (isAustraliaMissionCompleted(progress)) done.push('australia');
+  if (isEgyptMissionCompleted(progress)) done.push('egypt');
   return done;
 }
 
@@ -422,6 +435,7 @@ export function validatePortableProgressImportText(
     KENYA_PASSPORT_STAMP_ID,
     SCOTLAND_PASSPORT_STAMP_ID,
     AUSTRALIA_PASSPORT_STAMP_ID,
+    EGYPT_PASSPORT_STAMP_ID,
   ]);
 
   const rawStamps = Array.isArray(rawProgress.rewards && isPlainRecord(rawProgress.rewards) ? rawProgress.rewards.stamps : undefined)
@@ -478,7 +492,8 @@ export function validatePortableProgressImportText(
       s === 'stamp_india_jaipur' ||
       s === KENYA_PASSPORT_STAMP_ID ||
       s === SCOTLAND_PASSPORT_STAMP_ID ||
-      s === AUSTRALIA_PASSPORT_STAMP_ID,
+      s === AUSTRALIA_PASSPORT_STAMP_ID ||
+      s === EGYPT_PASSPORT_STAMP_ID,
   );
 
   const preview: PortableImportPreviewSummary = {

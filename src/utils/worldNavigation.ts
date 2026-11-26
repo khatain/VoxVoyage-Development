@@ -210,6 +210,9 @@ export interface EgyptNextMissionState {
   performStarted?: boolean;
   completedPerformIds?: EgyptLandmarkId[];
   performEvidenceComplete?: boolean;
+  performCompleted?: boolean;
+  chamberUnsealed?: boolean;
+  hasReflectionDraft?: boolean;
 }
 
 export type NextMissionWorldState =
@@ -1062,15 +1065,34 @@ export function resolveNextMissionTarget(
         },
       };
     }
+    if (!s.performCompleted) {
+      const targetId: EgyptPoiId = 'npc_layla';
+      return {
+        status: 'actionable',
+        targetId,
+        target: pickTarget(targetId),
+        stageLabel: 'PERFORM',
+        reasonKey: 'perform_reflection',
+        message: s.hasReflectionDraft
+          ? {
+              en: 'Resume your saved Final Self-Reflection with Dr. Layla to unseal the Chamber of Wisdom (+100 XP & Stamp)!',
+              th: 'กลับมาทำแบบสะท้อนคิดขั้นสุดท้ายที่บันทึกไว้กับ ดร.ไลลา เพื่อเปิดผนึกโถงแห่งปัญญา (+100 XP และตราประทับ)',
+            }
+          : {
+              en: 'All 5 Showcase missions recorded! Complete Final Self-Reflection with Dr. Layla to unseal the Chamber of Wisdom (+100 XP & Stamp).',
+              th: 'ส่งหลักฐาน PERFORM ครบ 5 ภารกิจแล้ว! ทำแบบสะท้อนคิดขั้นสุดท้ายกับ ดร.ไลลา เพื่อเปิดผนึกโถงแห่งปัญญา (+100 XP และตราประทับ)',
+            },
+      };
+    }
     return {
-      status: 'coming_soon',
+      status: 'country_completed',
       targetId: null,
       target: null,
-      stageLabel: 'PERFORM',
-      reasonKey: 'perform_reflection',
+      stageLabel: 'COMPLETE',
+      reasonKey: 'country_completed',
       message: {
-        en: 'All 5 PERFORM Showcase missions complete! Final Self-Reflection & Passport Stamp open in Phase 5F (Chamber remains sealed).',
-        th: 'ส่งหลักฐาน PERFORM ครบ 5 ภารกิจแล้ว! แบบสะท้อนคิดขั้นสุดท้ายและตราประทับจะเปิดใน Phase 5F (ประตูโถงยังปิดผนึก)',
+        en: 'Egypt Expedition complete! The Chamber of Wisdom is unsealed and your 5/5 Passport Stamp is earned.',
+        th: 'ภารกิจอียิปต์เสร็จสมบูรณ์แล้ว! โถงแห่งปัญญาเปิดผนึกและคุณได้รับตราประทับครบ 5/5 แล้ว',
       },
     };
   }

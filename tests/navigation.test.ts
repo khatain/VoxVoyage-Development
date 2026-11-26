@@ -810,10 +810,10 @@ describe('Phase NAV-1: Global Auto-Walk & Smart Navigation', () => {
         performEvidenceComplete: true,
       },
     });
-    assert.equal(egyptPerformReflectionPending.status, 'coming_soon');
+    assert.equal(egyptPerformReflectionPending.status, 'actionable');
     assert.equal(egyptPerformReflectionPending.stageLabel, 'PERFORM');
     assert.equal(egyptPerformReflectionPending.reasonKey, 'perform_reflection');
-    assert.equal(egyptPerformReflectionPending.targetId, null);
+    assert.equal(egyptPerformReflectionPending.targetId, 'npc_layla');
   });
 
   it('provides status tag precedence and full bilingual EN/TH navigation copy', () => {

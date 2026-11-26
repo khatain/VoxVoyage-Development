@@ -11,6 +11,7 @@ import type {
   CountryId,
   EgyptInstructionJournalRecord,
   EgyptPerformEvidenceRecord,
+  EgyptPerformReflectionState,
   EgyptPracticeEvidenceRecord,
   LocalProgressV1,
   QaLaunchRequest,
@@ -33,6 +34,7 @@ import {
   completeAustraliaPracticeMission,
   completeEgyptBuildMission,
   completeEgyptDiscoveryMission,
+  completeEgyptPerformAndReflection,
   completeEgyptPracticeMission,
   completeJaipurFinalShowcase,
   completeJaipurSentenceTrain,
@@ -46,6 +48,7 @@ import {
   completeScotlandPerformMission,
   completeScotlandPracticeStation,
   detectWebGLSupport,
+  EGYPT_MISSION_ID,
   getAustraliaBuiltDialogues,
   getAustraliaCompletedBuildIds,
   getAustraliaCompletedDiscoverIds,
@@ -67,17 +70,20 @@ import {
   getEgyptCompletedPerformIds,
   getEgyptCompletedPracticeChallengeIds,
   getEgyptCompletedPracticeIds,
+  getEgyptEffectiveEntry,
   getEgyptMetNpcIds,
   getEgyptNextBuildLandmarkId,
   getEgyptNextDiscoverLandmarkId,
   getEgyptNextPerformLandmarkId,
   getEgyptNextPracticeLandmarkId,
   getEgyptPerformPortfolio,
+  getEgyptPerformReflection,
   getEgyptPracticeJournal,
   getEgyptVisitedLandmarkIds,
   getJaipurEffectiveEntry,
   getKenyaEffectiveEntry,
   getScotlandEffectiveEntry,
+  hasEgyptReflectionDraft,
   isAustraliaAttemptPerformCompleted,
   isAustraliaBuildCompleted,
   isAustraliaBuildStarted,
@@ -91,11 +97,14 @@ import {
   isAustraliaPracticeStarted,
   isAustraliaPracticeUnlocked,
   isAustraliaUnlocked,
+  isEgyptAttemptPerformCompleted,
   isEgyptBuildCompleted,
   isEgyptBuildStarted,
   isEgyptBuildUnlocked,
+  isEgyptChamberUnsealed,
   isEgyptDiscoverCompleted,
   isEgyptDiscoverStarted,
+  isEgyptMissionCompleted,
   isEgyptPerformEvidenceComplete,
   isEgyptPerformStarted,
   isEgyptPerformUnlocked,
@@ -103,6 +112,7 @@ import {
   isEgyptPracticeStarted,
   isEgyptPracticeUnlocked,
   isEgyptUnlocked,
+  isGlobalAdventureCompleted,
   isJaipurBuildUnlocked,
   isJaipurMissionCompleted,
   isJaipurPerformUnlocked,
@@ -140,6 +150,7 @@ import {
   recordEgyptPracticeChallenge,
   resetProgressStorage,
   restartCountryReplayAttempt,
+  saveEgyptPerformReflectionDraft,
   saveProgress,
   SCOTLAND_BUILD_ACTIVITY_ID,
   SCOTLAND_DISCOVERY_ACTIVITY_ID,
@@ -197,6 +208,8 @@ import { ScotlandWorldScreen } from './components/screens/ScotlandWorldScreen';
 import { AustraliaWorldScreen } from './components/screens/AustraliaWorldScreen';
 import { EgyptWorldScreen } from './components/screens/EgyptWorldScreen';
 import { PassportModalScreen } from './components/screens/PassportModalScreen';
+import { GlobalExplorerGraduationModal } from './components/finale/GlobalExplorerGraduationModal';
+import { LearningLegacyModal } from './components/finale/LearningLegacyModal';
 
 const LazyWorldGlobePreview = lazy(() => import('./components/explorer/WorldGlobePreview'));
 const LazyDeveloperQaPanel = import.meta.env.DEV
@@ -237,6 +250,9 @@ export default function App() {
   const [passportReturnRoute, setPassportReturnRoute] = useState<'world-map' | 'country-lobby'>('world-map');
   const [avatarEntrySource, setAvatarEntrySource] = useState<'title' | 'world-map' | 'passport'>('title');
   const [australiaOpenReflectionOnEnter, setAustraliaOpenReflectionOnEnter] = useState(false);
+  const [egyptOpenReflectionOnEnter, setEgyptOpenReflectionOnEnter] = useState(false);
+  const [globalFinaleOpen, setGlobalFinaleOpen] = useState(false);
+  const [learningLegacyOpen, setLearningLegacyOpen] = useState(false);
   const [webglSupported, setWebglSupported] = useState<boolean>(() => detectWebGLSupport());
   const [viewMode, setViewMode] = useState<'3d' | '2d'>(() =>
     detectWebGLSupport() ? '3d' : '2d',
@@ -1014,6 +1030,27 @@ export default function App() {
     setProgress((prev) => recordEgyptPerformMissionEvidence(prev, landmarkId, record));
   };
 
+  const handleSaveEgyptReflectionDraft = (draft: EgyptPerformReflectionState) => {
+    setProgress((prev) => saveEgyptPerformReflectionDraft(prev, draft));
+  };
+
+  const handleSubmitEgyptFinalReflection = (
+    submitted: EgyptPerformReflectionState,
+  ) => {
+    const prevXp = progress.rewards.xp;
+    const wasLifetimeCompleted = isEgyptMissionCompleted(progress);
+    const next = completeEgyptPerformAndReflection(progress, submitted);
+    const isNowLifetimeCompleted = isEgyptMissionCompleted(next);
+    const newlyAwardedXp = Math.max(0, next.rewards.xp - prevXp);
+    setProgress((prev) => completeEgyptPerformAndReflection(prev, submitted));
+    return {
+      newlyCompleted: !wasLifetimeCompleted && isNowLifetimeCompleted,
+      newlyAwardedXp,
+      totalXp: next.rewards.xp,
+      globalCompleted: isGlobalAdventureCompleted(next),
+    };
+  };
+
   const handleRequestReplayCountry = (countryId: CountryId) => {
     if (!canReplayCountry(progress, countryId)) return;
     voxAudio.playSfx('click', progress.audioPrefs.sfxEnabled, resolvedAppearance);
@@ -1202,6 +1239,10 @@ export default function App() {
   const australiaCompletedAt = australiaMission.completedAt ?? australiaLifetime?.completedAt;
 
   const egyptUnlocked = isEgyptUnlocked(progress);
+  const egyptMission = getEgyptEffectiveEntry(progress);
+  const egyptLifetime = progress.missionProgress[EGYPT_MISSION_ID];
+  const egyptReplayAttempt = getCountryReplayAttempt(progress, 'egypt');
+  const egyptCanReplay = canReplayCountry(progress, 'egypt');
   const egyptExploredPoiIds = getEgyptVisitedLandmarkIds(progress);
   const egyptMetNpcIds = getEgyptMetNpcIds(progress);
   const egyptDiscoverStarted = isEgyptDiscoverStarted(progress);
@@ -1228,6 +1269,12 @@ export default function App() {
   const egyptNextPerformLandmarkId = getEgyptNextPerformLandmarkId(progress);
   const egyptPerformEvidenceComplete = isEgyptPerformEvidenceComplete(progress);
   const egyptPerformPortfolio = getEgyptPerformPortfolio(progress);
+  const egyptPerformReflection = getEgyptPerformReflection(progress);
+  const egyptHasReflectionDraft = hasEgyptReflectionDraft(progress);
+  const egyptPerformCompleted = isEgyptAttemptPerformCompleted(progress);
+  const egyptChamberUnsealed = isEgyptChamberUnsealed(progress);
+  const egyptCompletedAt = egyptMission.completedAt ?? egyptLifetime?.completedAt;
+  const globalAdventureCompleted = isGlobalAdventureCompleted(progress);
 
   const sceneMode = progress.currentRoute === 'welcome' ? 'title' : 'map';
   const copy = GAME_COPY[progress.uiLanguage];
@@ -1338,6 +1385,7 @@ export default function App() {
                     return;
                   }
                   voxAudio.playSfx('click', progress.audioPrefs.sfxEnabled, resolvedAppearance);
+                  setEgyptOpenReflectionOnEnter(false);
                   setProgress((prev) => ({
                     ...markEgyptEntered(prev),
                     currentRoute: 'country-lobby',
@@ -1358,6 +1406,31 @@ export default function App() {
                   selectedCountryId: 'australia',
                   currentRoute: 'country-lobby',
                 }));
+              }}
+              onEnterEgyptReflection={() => {
+                if (!canNavigateToCountry(progress, 'egypt')) {
+                  voxAudio.playSfx('click', progress.audioPrefs.sfxEnabled, resolvedAppearance);
+                  return;
+                }
+                voxAudio.playSfx('select', progress.audioPrefs.sfxEnabled, resolvedAppearance);
+                setEgyptOpenReflectionOnEnter(true);
+                setProgress((prev) => ({
+                  ...markEgyptEntered(prev),
+                  selectedCountryId: 'egypt',
+                  currentRoute: 'country-lobby',
+                }));
+              }}
+              onOpenGlobalFinale={
+                globalAdventureCompleted
+                  ? () => {
+                      voxAudio.playSfx('reward', progress.audioPrefs.sfxEnabled, resolvedAppearance);
+                      setGlobalFinaleOpen(true);
+                    }
+                  : undefined
+              }
+              onOpenLearningLegacy={() => {
+                voxAudio.playSfx('click', progress.audioPrefs.sfxEnabled, resolvedAppearance);
+                setLearningLegacyOpen(true);
               }}
               onRequestReplayCountry={handleRequestReplayCountry}
               onRequestRestartAttempt={handleRequestRestartAttempt}
@@ -1454,6 +1527,18 @@ export default function App() {
             voxAudio.playSfx('click', progress.audioPrefs.sfxEnabled, resolvedAppearance);
             setPortableProgressOpen(true);
           }}
+          onOpenLearningLegacy={() => {
+            voxAudio.playSfx('click', progress.audioPrefs.sfxEnabled, resolvedAppearance);
+            setLearningLegacyOpen(true);
+          }}
+          onOpenGlobalFinale={
+            globalAdventureCompleted
+              ? () => {
+                  voxAudio.playSfx('reward', progress.audioPrefs.sfxEnabled, resolvedAppearance);
+                  setGlobalFinaleOpen(true);
+                }
+              : undefined
+          }
         />
       ) : progress.currentRoute === 'country-lobby' && progress.selectedCountryId === 'india' ? (
         <JaipurWorldScreen
@@ -1758,6 +1843,7 @@ export default function App() {
         progress.selectedCountryId === 'egypt' &&
         egyptUnlocked ? (
         <EgyptWorldScreen
+          key={`egypt-${egyptReplayAttempt?.startedAt ?? 'lifetime'}`}
           language={progress.uiLanguage}
           country={selectedCountry}
           avatar={progress.avatar}
@@ -1767,7 +1853,12 @@ export default function App() {
           webglSupported={webglSupported}
           viewMode={viewMode}
           musicPlaying={musicPlaying}
-          externalModalOpen={settingsOpen || replayModalTarget !== null}
+          externalModalOpen={
+            settingsOpen ||
+            replayModalTarget !== null ||
+            globalFinaleOpen ||
+            learningLegacyOpen
+          }
           exploredPoiIds={egyptExploredPoiIds}
           metNpcIds={egyptMetNpcIds}
           discoverStarted={egyptDiscoverStarted}
@@ -1794,6 +1885,29 @@ export default function App() {
           nextPerformLandmarkId={egyptNextPerformLandmarkId}
           performEvidenceComplete={egyptPerformEvidenceComplete}
           performPortfolio={egyptPerformPortfolio}
+          reflectionState={egyptPerformReflection ?? undefined}
+          hasReflectionDraft={egyptHasReflectionDraft}
+          performCompleted={egyptPerformCompleted}
+          chamberUnsealed={egyptChamberUnsealed}
+          globalCompleted={globalAdventureCompleted}
+          completedAt={egyptCompletedAt}
+          isReplayActive={Boolean(egyptReplayAttempt)}
+          replayAttemptNumber={egyptReplayAttempt?.attemptNumber}
+          canReplayCountry={egyptCanReplay}
+          openReflectionOnEnter={egyptOpenReflectionOnEnter}
+          onConsumeOpenReflectionOnEnter={() => setEgyptOpenReflectionOnEnter(false)}
+          onSaveReflectionDraft={handleSaveEgyptReflectionDraft}
+          onSubmitFinalReflection={handleSubmitEgyptFinalReflection}
+          onOpenGlobalFinale={() => {
+            voxAudio.playSfx('reward', progress.audioPrefs.sfxEnabled, resolvedAppearance);
+            setGlobalFinaleOpen(true);
+          }}
+          onOpenLearningLegacy={() => {
+            voxAudio.playSfx('click', progress.audioPrefs.sfxEnabled, resolvedAppearance);
+            setLearningLegacyOpen(true);
+          }}
+          onRequestReplayCountry={() => handleRequestReplayCountry('egypt')}
+          onRequestRestartAttempt={() => handleRequestRestartAttempt('egypt')}
           onStartDiscovery={handleStartEgyptDiscovery}
           onCompleteDiscoveryMission={handleCompleteEgyptDiscoveryMission}
           onStartBuild={handleStartEgyptBuild}
@@ -1968,6 +2082,54 @@ export default function App() {
           />
         </Suspense>
       )}
+
+      {/* Global Explorer Graduation Finale (Strictly Guarded by 5/5 Canonical Completion) */}
+      <GlobalExplorerGraduationModal
+        isOpen={globalFinaleOpen}
+        language={progress.uiLanguage}
+        appearance={resolvedAppearance}
+        reducedMotion={effectiveReducedMotion}
+        progress={progress}
+        onOpenLearningLegacy={() => {
+          setGlobalFinaleOpen(false);
+          setLearningLegacyOpen(true);
+        }}
+        onContinueExploring={() => {
+          setGlobalFinaleOpen(false);
+        }}
+        onReturnToWorldMap={() => {
+          setGlobalFinaleOpen(false);
+          navigate('world-map');
+        }}
+        onClose={() => setGlobalFinaleOpen(false)}
+        onPlaySfx={(kind = 'click') => {
+          voxAudio.playSfx(kind, progress.audioPrefs.sfxEnabled, resolvedAppearance);
+        }}
+      />
+
+      {/* My Learning Legacy Folio (5 Countries, Stamps, Journals, & Egypt Final Reflection) */}
+      <LearningLegacyModal
+        isOpen={learningLegacyOpen}
+        language={progress.uiLanguage}
+        appearance={resolvedAppearance}
+        progress={progress}
+        onOpenPortableProgress={() => {
+          setLearningLegacyOpen(false);
+          setPortableProgressOpen(true);
+        }}
+        onOpenGlobalFinale={
+          globalAdventureCompleted
+            ? () => {
+                setLearningLegacyOpen(false);
+                setGlobalFinaleOpen(true);
+              }
+            : undefined
+        }
+        onClose={() => setLearningLegacyOpen(false)}
+        onPlaySfx={(kind = 'click') => {
+          voxAudio.playSfx(kind, progress.audioPrefs.sfxEnabled, resolvedAppearance);
+        }}
+      />
 
       {/* Country Replay / Restart Current Attempt Confirmation Dialog */}
       <ReplayConfirmModal

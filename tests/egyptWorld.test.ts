@@ -420,8 +420,8 @@ describe('Phase 5A: Egypt — Echoes of Egypt (3D World Foundation & Exploration
     assert.equal(getEgyptMetNpcIds(cleanedLocked).length, 0);
   });
 
-  it('keeps Egypt Country Replay disabled and guarantees bilingual EN/TH copy & clean self-contained assets', () => {
-    assert.equal(COUNTRY_REPLAY_CAPABILITIES.egypt.isImplemented, false);
+  it('enables Egypt Country Replay and guarantees bilingual EN/TH copy & clean self-contained assets', () => {
+    assert.equal(COUNTRY_REPLAY_CAPABILITIES.egypt.isImplemented, true);
 
     // Verify all Egypt i18n keys exist cleanly in EN & TH and nav* count remains strictly 26
     const enNavKeys = Object.keys(GAME_COPY.en).filter((k) => k.startsWith('nav'));

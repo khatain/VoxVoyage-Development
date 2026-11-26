@@ -506,7 +506,13 @@ describe('Country Replay & Restart Current Attempt System', () => {
       'practice',
       'perform',
     ]);
-    assert.equal(getCountryReplayCapabilities('egypt').isImplemented, false);
+    assert.equal(getCountryReplayCapabilities('egypt').isImplemented, true);
+    assert.deepEqual(getCountryReplayCapabilities('egypt').supportedStages, [
+      'discover',
+      'build',
+      'practice',
+      'perform',
+    ]);
 
     const base = completeIndiaLifetime(createDefaultProgress());
     const spoofedRaw = {

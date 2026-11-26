@@ -70,6 +70,10 @@ interface EgyptExpeditionGuideModalProps {
   completedPerformIds?: EgyptLandmarkId[];
   nextPerformLandmarkId?: EgyptLandmarkId | null;
   performEvidenceComplete?: boolean;
+  performCompleted?: boolean;
+  hasReflectionDraft?: boolean;
+  chamberUnsealed?: boolean;
+  globalCompleted?: boolean;
   performPortfolio?: EgyptPerformEvidenceRecord[];
   onStartDiscovery?: () => void;
   onLaunchDiscoverGame?: (id: EgyptLandmarkId) => void;
@@ -83,6 +87,10 @@ interface EgyptExpeditionGuideModalProps {
   onStartPerform?: () => void;
   onLaunchPerformGame?: (id: EgyptLandmarkId) => void;
   onOpenPerformCelebration?: () => void;
+  onOpenFinalReflection?: () => void;
+  onOpenChamberCeremony?: () => void;
+  onOpenLearningLegacy?: () => void;
+  onOpenGlobalFinale?: () => void;
   onGuideToLandmark: (id: EgyptLandmarkId) => void;
   onClearGuide: () => void;
   onAutoWalkToLandmark?: (id: EgyptLandmarkId) => void;
@@ -119,6 +127,10 @@ export function EgyptExpeditionGuideModal({
   completedPerformIds = [],
   nextPerformLandmarkId = null,
   performEvidenceComplete = false,
+  performCompleted = false,
+  hasReflectionDraft = false,
+  chamberUnsealed = false,
+  globalCompleted = false,
   performPortfolio = [],
   onStartDiscovery,
   onLaunchDiscoverGame,
@@ -132,6 +144,10 @@ export function EgyptExpeditionGuideModal({
   onStartPerform,
   onLaunchPerformGame,
   onOpenPerformCelebration,
+  onOpenFinalReflection,
+  onOpenChamberCeremony,
+  onOpenLearningLegacy,
+  onOpenGlobalFinale,
   onGuideToLandmark,
   onClearGuide,
   onAutoWalkToLandmark,
@@ -605,10 +621,17 @@ export function EgyptExpeditionGuideModal({
                               #{lm.order}
                             </span>
                             {lm.isSealedInPhase5A && (
-                              <span className="inline-flex items-center gap-1 rounded bg-[#1E293B] px-1.5 py-0.5 text-[10px] font-extrabold text-[#FDE68A]">
-                                <Lock className="h-2.5 w-2.5" aria-hidden="true" />
-                                <span>{copy.egyptChamberSealedBadge}</span>
-                              </span>
+                              chamberUnsealed ? (
+                                <span className="inline-flex items-center gap-1 rounded bg-[#0F766E] px-1.5 py-0.5 text-[10px] font-extrabold text-[#FEF3C7]">
+                                  <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
+                                  <span>{copy.egyptChamberUnsealedBadge}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded bg-[#1E293B] px-1.5 py-0.5 text-[10px] font-extrabold text-[#FDE68A]">
+                                  <Lock className="h-2.5 w-2.5" aria-hidden="true" />
+                                  <span>{copy.egyptChamberSealedBadge}</span>
+                                </span>
+                              )
                             )}
                             {isNext && (
                               <span className="rounded bg-[#12B8B0] px-1.5 py-0.5 text-[10px] font-extrabold text-[#131E31]">
@@ -932,16 +955,48 @@ export function EgyptExpeditionGuideModal({
                 </div>
 
                 {activeLandmark.isSealedInPhase5A && (
-                  <div
-                    className={`flex items-center gap-2 rounded-xl border p-3 text-xs font-bold ${
-                      isNight
-                        ? 'border-[#E7B43C]/45 bg-[#2A2013] text-[#FDE68A]'
-                        : 'border-[#F59E0B] bg-[#FFFBEB] text-[#92400E]'
-                    }`}
-                  >
-                    <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span>{copy.egyptChamberSealedBanner}</span>
-                  </div>
+                  chamberUnsealed ? (
+                    <div
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-xs font-bold ${
+                        isNight
+                          ? 'border-[#24B8B0]/50 bg-[#0F2A2A] text-[#99F6E4]'
+                          : 'border-[#0E7A74]/35 bg-[#ECFDF5] text-[#065F46]'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 shrink-0 text-[#D4A14A]" aria-hidden="true" />
+                        <span>
+                          {language === 'th'
+                            ? 'โถงแห่งปัญญาเปิดผนึกแล้ว — สามารถเข้าชมพิธีเปิดโถงหรือทบทวนคำสะท้อนคิดได้ทุกเมื่อ'
+                            : 'Chamber of Wisdom is unsealed! Revisit the Unsealing Ceremony or review your Final Reflection anytime.'}
+                        </span>
+                      </span>
+                      {onOpenChamberCeremony && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onPlaySfx('reward');
+                            onOpenChamberCeremony();
+                            onClose();
+                          }}
+                          className="rounded-lg bg-[#D4A14A] px-2.5 py-1 text-[11px] font-extrabold text-[#172338] cursor-pointer"
+                        >
+                          {copy.egyptChamberOpenCeremonyCta}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      className={`flex items-center gap-2 rounded-xl border p-3 text-xs font-bold ${
+                        isNight
+                          ? 'border-[#E7B43C]/45 bg-[#2A2013] text-[#FDE68A]'
+                          : 'border-[#F59E0B] bg-[#FFFBEB] text-[#92400E]'
+                      }`}
+                    >
+                      <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span>{copy.egyptChamberSealedBanner}</span>
+                    </div>
+                  )
                 )}
 
                 <p className="text-sm leading-relaxed">
@@ -1553,11 +1608,13 @@ export function EgyptExpeditionGuideModal({
                             : 'bg-black/10 text-[#64748B] dark:bg-white/10 dark:text-[#94A3B8]'
                       }`}
                     >
-                      {performEvidenceComplete
-                        ? `5/5 · ${copy.egyptGuideLockedFuturePhase}`
-                        : performUnlocked
-                          ? `${completedPerformCount}/${totalCount}`
-                          : copy.worldMapStatusLocked}
+                      {performCompleted
+                        ? copy.egyptPerformCompletedCountryBadge
+                        : performEvidenceComplete
+                          ? `5/5 · ${copy.egyptReflectionGateTitle}`
+                          : performUnlocked
+                            ? `${completedPerformCount}/${totalCount}`
+                            : copy.worldMapStatusLocked}
                     </span>
                   </div>
                   <p
@@ -1565,9 +1622,13 @@ export function EgyptExpeditionGuideModal({
                       isNight ? 'text-[#CBD5E1]' : 'text-[#475569]'
                     }`}
                   >
-                    {performUnlocked
-                      ? copy.egyptPerformGuideCardDesc
-                      : copy.egyptGuideStagePerformDesc}
+                    {performCompleted
+                      ? language === 'th'
+                        ? 'สำเร็จครบทั้ง 5 ภารกิจ Grand Showcase และคำสะท้อนคิดขั้นสุดท้ายแล้ว โถงแห่งปัญญาเปิดผนึกเรียบร้อย'
+                        : 'All 5 Showcase missions & Final Self-Reflection submitted. The Chamber of Wisdom is unsealed!'
+                      : performUnlocked
+                        ? copy.egyptPerformGuideCardDesc
+                        : copy.egyptGuideStagePerformDesc}
                   </p>
                 </div>
 
@@ -1582,6 +1643,81 @@ export function EgyptExpeditionGuideModal({
                     <Lock className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{copy.worldMapStatusLocked}</span>
                   </span>
+                ) : performEvidenceComplete && !performCompleted && onOpenFinalReflection ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onPlaySfx('reward');
+                      onOpenFinalReflection();
+                      onClose();
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-3.5 py-2 text-xs font-extrabold text-[#131E31] hover:brightness-105 cursor-pointer shrink-0"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>
+                      {hasReflectionDraft
+                        ? copy.egyptReflectionResumeDraftCta
+                        : copy.egyptReflectionStartCta}
+                    </span>
+                  </button>
+                ) : performCompleted ? (
+                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                    {onOpenChamberCeremony && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onPlaySfx('reward');
+                          onOpenChamberCeremony();
+                          onClose();
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-3 py-2 text-xs font-extrabold text-[#131E31] hover:bg-[#F2C66D] cursor-pointer"
+                      >
+                        <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{copy.egyptChamberOpenCeremonyCta}</span>
+                      </button>
+                    )}
+                    {onOpenFinalReflection && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onPlaySfx('select');
+                          onOpenFinalReflection();
+                          onClose();
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#24B8B0]/45 bg-[#24B8B0]/15 px-3 py-2 text-xs font-extrabold text-[#0E7A74] dark:text-[#5EEAD4] cursor-pointer"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{copy.egyptReflectionReviewCta}</span>
+                      </button>
+                    )}
+                    {onOpenLearningLegacy && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onPlaySfx('select');
+                          onOpenLearningLegacy();
+                          onClose();
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#D4A14A]/45 bg-white/80 dark:bg-white/10 px-3 py-2 text-xs font-extrabold cursor-pointer"
+                      >
+                        <span>{copy.learningLegacyTitle}</span>
+                      </button>
+                    )}
+                    {globalCompleted && onOpenGlobalFinale && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onPlaySfx('reward');
+                          onOpenGlobalFinale();
+                          onClose();
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#24B8B0] px-3 py-2 text-xs font-extrabold text-[#082026] cursor-pointer"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{copy.globalFinaleTitle}</span>
+                      </button>
+                    )}
+                  </div>
                 ) : performEvidenceComplete && onOpenPerformCelebration ? (
                   <button
                     type="button"

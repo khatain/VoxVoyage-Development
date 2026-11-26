@@ -642,7 +642,7 @@ describe('Phase 5C: Egypt Stage 2 — BUILD: Ancient Instruction Builder', () =>
     p = completeEgyptBuildMission(p, 'chamber_of_wisdom');
     assert.equal(p.rewards.xp, 1100);
     assert.equal(p.rewards.stamps.length, 4);
-    assert.equal(COUNTRY_REPLAY_CAPABILITIES.egypt.isImplemented, false);
+    assert.equal(COUNTRY_REPLAY_CAPABILITIES.egypt.isImplemented, true);
   });
 
   it('migrates Phase 5B saves safely and strips tampered BUILD / Practice / Perform / Stamp payloads', () => {

@@ -59,6 +59,7 @@ export interface EgyptSceneProps {
   onNearestPoiChange: (poiId: EgyptPoiId | null) => void;
   onActivatePoi?: (poiId: EgyptPoiId) => void;
   onWebGLFailure: () => void;
+  chamberUnsealed?: boolean;
 }
 
 const _colorA = new THREE.Color();
@@ -152,6 +153,7 @@ export default function EgyptExplorationScene({
   onNearestPoiChange,
   onActivatePoi,
   onWebGLFailure,
+  chamberUnsealed = false,
 }: EgyptSceneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -163,6 +165,8 @@ export default function EgyptExplorationScene({
   sensitivityRef.current = cameraSensitivity;
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+  const chamberUnsealedRef = useRef(chamberUnsealed);
+  chamberUnsealedRef.current = chamberUnsealed;
   const visitedRef = useRef<Set<EgyptPoiId>>(new Set(visitedPoiIds));
   visitedRef.current = new Set(visitedPoiIds);
   const guidedPoiRef = useRef<EgyptPoiId | null>(guidedPoiId);
@@ -379,9 +383,16 @@ export default function EgyptExplorationScene({
     );
     const chamberSignTex = createEgyptSignTexture(
       'CHAMBER OF WISDOM',
-      'SEALED · FINAL EXPEDITION REQUIRED',
+      'SEALED · FINAL REFLECTION REQUIRED',
       '#2B1C12',
       '#E7B43C',
+      maxAnisotropy,
+    );
+    const chamberSignUnsealedTex = createEgyptSignTexture(
+      'CHAMBER OF WISDOM',
+      'UNSEALED · EXPEDITION COMPLETE',
+      '#0F3A36',
+      '#F2C66D',
       maxAnisotropy,
     );
     const shadowTex = createContactShadowTexture();
@@ -1082,23 +1093,56 @@ export default function EgyptExplorationScene({
       roughness: 0.42,
       metalness: 0.35,
     });
-    const sealedDoor = new THREE.Mesh(new THREE.BoxGeometry(3.8, 4.1, 0.34), sealedDoorMat);
-    sealedDoor.position.set(0, 2.15, 2.86);
-    chamberGroup.add(sealedDoor);
+    const chamberInnerGlowMat = new THREE.MeshBasicMaterial({
+      color: 0xfde68a,
+      transparent: true,
+      opacity: chamberUnsealedRef.current ? 0.92 : 0.0,
+    });
+    const chamberInnerPortal = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.7, 4.0),
+      chamberInnerGlowMat,
+    );
+    chamberInnerPortal.position.set(0, 2.15, 2.74);
+    chamberGroup.add(chamberInnerPortal);
+
+    const chamberCoreEmblemMat = new THREE.MeshBasicMaterial({
+      color: 0x24b8b0,
+      transparent: true,
+      opacity: chamberUnsealedRef.current ? 0.85 : 0.0,
+    });
+    const chamberCoreEmblem = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.45, 0),
+      chamberCoreEmblemMat,
+    );
+    chamberCoreEmblem.position.set(0, 2.2, 2.86);
+    chamberGroup.add(chamberCoreEmblem);
+
+    const leftDoor = new THREE.Mesh(new THREE.BoxGeometry(1.9, 4.1, 0.34), sealedDoorMat);
+    leftDoor.position.set(chamberUnsealedRef.current ? -2.6 : -0.95, 2.15, 2.86);
+    chamberGroup.add(leftDoor);
+
+    const rightDoor = new THREE.Mesh(new THREE.BoxGeometry(1.9, 4.1, 0.34), sealedDoorMat);
+    rightDoor.position.set(chamberUnsealedRef.current ? 2.6 : 0.95, 2.15, 2.86);
+    chamberGroup.add(rightDoor);
 
     const doorCenterSeam = new THREE.Mesh(new THREE.BoxGeometry(0.1, 4.05, 0.1), goldCapstoneMat);
     doorCenterSeam.position.set(0, 2.15, 3.02);
+    doorCenterSeam.visible = !chamberUnsealedRef.current;
     chamberGroup.add(doorCenterSeam);
 
+    const lockBarMeshes: THREE.Mesh[] = [];
     for (const barY of [1.1, 3.2]) {
       const lockBar = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.16, 0.12), goldCapstoneMat);
       lockBar.position.set(0, barY, 3.02);
+      lockBar.visible = !chamberUnsealedRef.current;
       chamberGroup.add(lockBar);
+      lockBarMeshes.push(lockBar);
     }
 
     const lockRim = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.76, 0.18, 8), goldCapstoneMat);
     lockRim.rotation.x = Math.PI / 2;
     lockRim.position.set(0, 2.15, 3.04);
+    lockRim.visible = !chamberUnsealedRef.current;
     chamberGroup.add(lockRim);
 
     const lockMedallion = new THREE.Mesh(
@@ -1107,12 +1151,13 @@ export default function EgyptExplorationScene({
     );
     lockMedallion.rotation.x = Math.PI / 2;
     lockMedallion.position.set(0, 2.15, 3.06);
+    lockMedallion.visible = !chamberUnsealedRef.current;
     chamberGroup.add(lockMedallion);
 
-    const cSign = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.4, 1.3),
-      new THREE.MeshBasicMaterial({ map: chamberSignTex }),
-    );
+    const cSignMat = new THREE.MeshBasicMaterial({
+      map: chamberUnsealedRef.current ? chamberSignUnsealedTex : chamberSignTex,
+    });
+    const cSign = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 1.3), cSignMat);
     cSign.position.set(0, 5.65, 2.48);
     chamberGroup.add(cSign);
     scene.add(chamberGroup);
@@ -1402,6 +1447,8 @@ export default function EgyptExplorationScene({
     let stuckAnchorZ = playerZ;
     let posEmitTimer = 0;
     let snapCameraNextFrame = false;
+    let doorOpenProgress = chamberUnsealedRef.current ? 1 : 0;
+    let appliedUnsealedSign = chamberUnsealedRef.current;
 
     onPositionRef.current?.({ x: playerX, z: playerZ });
 
@@ -1440,6 +1487,37 @@ export default function EgyptExplorationScene({
         0.08,
       );
       starMat.opacity = THREE.MathUtils.lerp(starMat.opacity, isNightNow ? 0.88 : 0, 0.08);
+
+      // Chamber of Wisdom Unsealing Door Animation
+      const targetOpen = chamberUnsealedRef.current ? 1 : 0;
+      if (reducedMotionRef.current) {
+        doorOpenProgress = targetOpen;
+      } else {
+        doorOpenProgress = THREE.MathUtils.lerp(
+          doorOpenProgress,
+          targetOpen,
+          Math.min(1, dt * 2.4),
+        );
+      }
+      leftDoor.position.x = -0.95 - doorOpenProgress * 1.65;
+      rightDoor.position.x = 0.95 + doorOpenProgress * 1.65;
+      const sealVisible = doorOpenProgress < 0.55;
+      doorCenterSeam.visible = sealVisible;
+      lockRim.visible = sealVisible;
+      lockMedallion.visible = sealVisible;
+      lockBarMeshes.forEach((b) => {
+        b.visible = sealVisible;
+      });
+      chamberInnerGlowMat.opacity =
+        doorOpenProgress * (0.85 + Math.sin(elapsed * 2.2) * 0.08 * motionScale);
+      chamberCoreEmblemMat.opacity = doorOpenProgress * 0.9;
+      chamberCoreEmblem.visible = doorOpenProgress > 0.08;
+      chamberCoreEmblem.rotation.y += dt * 1.2 * motionScale;
+      if (chamberUnsealedRef.current !== appliedUnsealedSign) {
+        appliedUnsealedSign = chamberUnsealedRef.current;
+        cSignMat.map = appliedUnsealedSign ? chamberSignUnsealedTex : chamberSignTex;
+        cSignMat.needsUpdate = true;
+      }
 
       // Ambient Nile water ripples, boats, clouds & palms
       nileWaterTex.offset.x = (nileWaterTex.offset.x + dt * 0.03 * motionScale) % 1;
@@ -1745,6 +1823,7 @@ export default function EgyptExplorationScene({
         scribeSignTex,
         templeSignTex,
         chamberSignTex,
+        chamberSignUnsealedTex,
         shadowTex,
       ].forEach((t) => t.dispose());
       envTarget.dispose();

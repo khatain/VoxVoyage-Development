@@ -70,6 +70,12 @@ interface EgyptPerformModalProps {
   onClose: () => void;
   onPlaySfx: (kind?: 'click' | 'select' | 'reward') => void;
   initialDifficulty?: 'a2' | 'b1';
+  performCompleted?: boolean;
+  hasReflectionDraft?: boolean;
+  chamberUnsealed?: boolean;
+  onOpenFinalReflection?: () => void;
+  onOpenChamberCeremony?: () => void;
+  onAutoOpenFinalReflection?: () => void;
 }
 
 export function EgyptPerformModal({
@@ -89,6 +95,12 @@ export function EgyptPerformModal({
   onClose,
   onPlaySfx,
   initialDifficulty,
+  performCompleted = false,
+  hasReflectionDraft = false,
+  chamberUnsealed = false,
+  onOpenFinalReflection,
+  onOpenChamberCeremony,
+  onAutoOpenFinalReflection,
 }: EgyptPerformModalProps) {
   const copy = GAME_COPY[language];
   const isNight = appearance === 'night';
@@ -567,20 +579,32 @@ export function EgyptPerformModal({
                   <span>{totalXp} XP</span>
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-xl bg-[#0F172A] px-3 py-1 font-mono-num text-xs font-extrabold text-[#FDE68A]">
-                  <Lock className="h-3 w-3" aria-hidden="true" />
-                  <span>4 / 5 {copy.stampsLabel}</span>
+                  {chamberUnsealed ? (
+                    <Sparkles className="h-3 w-3" aria-hidden="true" />
+                  ) : (
+                    <Lock className="h-3 w-3" aria-hidden="true" />
+                  )}
+                  <span>{performCompleted ? '5 / 5' : '4 / 5'} {copy.stampsLabel}</span>
                 </span>
               </div>
 
               <h3 className="font-display text-sm sm:text-base font-extrabold">
-                {copy.egyptPerformReflectionPendingTitle}
+                {performCompleted
+                  ? language === 'th'
+                    ? 'ภารกิจอียิปต์เสร็จสมบูรณ์และเปิดผนึกโถงแล้ว!'
+                    : 'Egypt Completed & Chamber Unsealed!'
+                  : copy.egyptPerformReflectionPendingTitle}
               </h3>
               <p
                 className={`text-xs leading-relaxed ${
                   isNight ? 'text-[#CBD5E1]' : 'text-[#475569]'
                 }`}
               >
-                {copy.egyptPerformReflectionPendingDesc}
+                {performCompleted
+                  ? language === 'th'
+                    ? 'คุณส่งหลักฐานครบทั้ง 5 ภารกิจและคำสะท้อนคิดขั้นสุดท้ายเรียบร้อยแล้ว สามารถทบทวนหรือเข้าชมโถงแห่งปัญญาได้ทุกเมื่อ'
+                    : 'Your 5 Showcase records and Final Self-Reflection are saved. Revisit the Chamber of Wisdom or review your reflection anytime.'
+                  : copy.egyptPerformReflectionPendingDesc}
               </p>
             </div>
 
@@ -601,9 +625,13 @@ export function EgyptPerformModal({
                   {layla.name}
                 </p>
                 <p className="mt-0.5 text-xs sm:text-sm font-medium leading-relaxed">
-                  {language === 'th'
-                    ? 'ยอดเยี่ยมมาก! คุณส่งหลักฐานการสื่อสารภาษาอังกฤษครบทั้ง 5 ภารกิจของ Grand Showcase แล้ว ประตูโถงแห่งปัญญาจะยังคงปิดผนึกจนกว่าจะถึงแบบสะท้อนคิดขั้นสุดท้ายและรับตราประทับอียิปต์ใน Phase 5F'
-                    : 'Bravo, Expedition Leader! All five Grand Showcase communication records are safely preserved in your Performance Portfolio. The Chamber of Wisdom remains sealed until Final Self-Reflection opens in Phase 5F—where you will earn the final +70 XP and the Egypt Passport Stamp.'}
+                  {performCompleted
+                    ? language === 'th'
+                      ? 'ยินดีด้วย! คุณส่งทั้งผลงาน Grand Showcase และคำสะท้อนคิดขั้นสุดท้ายครบสมบูรณ์ โถงแห่งปัญญาได้เปิดผนึกและตราประทับอียิปต์ 5/5 เป็นของคุณแล้ว!'
+                      : 'Bravo, Expedition Leader! Your five Grand Showcase records and Final Self-Reflection are complete—the Chamber of Wisdom stands unsealed and your +100 XP & Egypt Passport Stamp are earned!'
+                    : language === 'th'
+                      ? 'ยอดเยี่ยมมาก! คุณส่งหลักฐานการสื่อสารภาษาอังกฤษครบทั้ง 5 ภารกิจของ Grand Showcase แล้ว ขั้นต่อไปคือแบบสะท้อนคิดขั้นสุดท้าย เพื่อเปิดผนึกโถงแห่งปัญญาและรับ +100 XP พร้อมตราประทับอียิปต์ 5/5!'
+                      : 'Bravo, Expedition Leader! All five Grand Showcase communication records are safely preserved in your Performance Portfolio. Next, complete your Final Self-Reflection to unseal the Chamber of Wisdom and earn the final +100 XP and Egypt Passport Stamp!'}
                 </p>
               </div>
             </div>
@@ -670,18 +698,55 @@ export function EgyptPerformModal({
                 <span>{copy.egyptPerformOpenPortfolioButton}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  stopSpeech();
-                  onPlaySfx('click');
-                  onClose();
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-5 py-2.5 font-display text-xs sm:text-sm font-extrabold text-[#131E31] shadow-md hover:bg-[#F2C66D] cursor-pointer"
-              >
-                <Compass className="h-4 w-4" aria-hidden="true" />
-                <span>{copy.egyptDiscoverReturnGizaButton}</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {!performCompleted && onOpenFinalReflection ? (
+                  <button
+                    type="button"
+                    data-testid="perform-open-reflection-button"
+                    onClick={() => {
+                      stopSpeech();
+                      onPlaySfx('reward');
+                      onClose();
+                      onOpenFinalReflection();
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-5 py-2.5 font-display text-xs sm:text-sm font-extrabold text-[#131E31] shadow-md hover:brightness-105 cursor-pointer"
+                  >
+                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                    <span>
+                      {hasReflectionDraft
+                        ? copy.egyptReflectionResumeDraftCta
+                        : copy.egyptReflectionStartCta}
+                    </span>
+                  </button>
+                ) : performCompleted && onOpenChamberCeremony ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopSpeech();
+                      onPlaySfx('reward');
+                      onClose();
+                      onOpenChamberCeremony();
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-5 py-2.5 font-display text-xs sm:text-sm font-extrabold text-[#131E31] shadow-md hover:brightness-105 cursor-pointer"
+                  >
+                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                    <span>{copy.egyptChamberOpenCeremonyCta}</span>
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopSpeech();
+                    onPlaySfx('click');
+                    onClose();
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#D4A14A]/40 bg-white/80 dark:bg-white/10 px-4 py-2.5 font-display text-xs sm:text-sm font-extrabold text-[#131E31] dark:text-white cursor-pointer"
+                >
+                  <Compass className="h-4 w-4" aria-hidden="true" />
+                  <span>{copy.egyptDiscoverReturnGizaButton}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -718,7 +783,11 @@ export function EgyptPerformModal({
       );
 
     if (landmarkId === 'chamber_of_wisdom' && !wasAllComplete && willHaveAll) {
-      onSwitchView({ kind: 'celebration', newlyCompleted: true });
+      if (!performCompleted && onAutoOpenFinalReflection) {
+        onAutoOpenFinalReflection();
+      } else {
+        onSwitchView({ kind: 'celebration', newlyCompleted: true });
+      }
     }
   };
 
@@ -990,8 +1059,8 @@ export function EgyptPerformModal({
                   <p className="text-xs sm:text-sm font-extrabold">
                     {savedBannerLandmark === landmarkId
                       ? language === 'th'
-                        ? 'บันทึกหลักฐานลงใน Performance Portfolio เรียบร้อยแล้ว! (+0 XP — ยังไม่เปิดตราพาสปอร์ตใน Phase 5E.1)'
-                        : 'Performance evidence saved to your Portfolio! (+0 XP in Phase 5E.1; revise anytime.)'
+                        ? 'บันทึกหลักฐานลงใน Performance Portfolio เรียบร้อยแล้ว! (ส่งแบบสะท้อนคิดขั้นสุดท้ายเมื่อครบ 5 ภารกิจเพื่อเปิดผนึกโถง)'
+                        : 'Performance evidence saved to your Portfolio! (Complete all 5 missions & Final Self-Reflection to unseal the Chamber.)'
                       : language === 'th'
                         ? 'ภารกิจนี้บันทึกไว้ใน Performance Portfolio แล้ว (สามารถแก้ไขและบันทึกซ้ำได้)'
                         : 'This mission is recorded in your Performance Portfolio (you can revise and re-save anytime).'}
@@ -1019,6 +1088,25 @@ export function EgyptPerformModal({
                       ]}
                     </span>
                     <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                ) : performEvidenceComplete && !performCompleted && onOpenFinalReflection ? (
+                  <button
+                    type="button"
+                    data-testid="perform-banner-open-reflection-button"
+                    onClick={() => {
+                      stopSpeech();
+                      onPlaySfx('reward');
+                      onClose();
+                      onOpenFinalReflection();
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-4 py-2 font-display text-xs sm:text-sm font-extrabold text-[#131E31] shadow hover:brightness-105 cursor-pointer"
+                  >
+                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                    <span>
+                      {hasReflectionDraft
+                        ? copy.egyptReflectionResumeDraftCta
+                        : copy.egyptReflectionStartCta}
+                    </span>
                   </button>
                 ) : performEvidenceComplete ? (
                   <button

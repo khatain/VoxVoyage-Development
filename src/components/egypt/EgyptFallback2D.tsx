@@ -8,6 +8,7 @@ import {
   Lock,
   MapPin,
   MessageCircle,
+  Sparkles,
 } from 'lucide-react';
 import type { AppLanguage, AvatarConfig, ResolvedAppearance } from '../../types/game';
 import {
@@ -32,6 +33,7 @@ interface EgyptFallback2DProps {
   visitedPoiIds: EgyptPoiId[];
   nearestPoiId?: EgyptPoiId | null;
   guidedPoiId?: EgyptPoiId | null;
+  chamberUnsealed?: boolean;
   noticeText: string;
   autoWalkRequest?: ActiveAutoWalkRequest | null;
   quickTravelRequest?: ActiveQuickTravelRequest | null;
@@ -58,6 +60,7 @@ export function EgyptFallback2D({
   visitedPoiIds,
   nearestPoiId = null,
   guidedPoiId = null,
+  chamberUnsealed = false,
   noticeText,
   autoWalkRequest = null,
   quickTravelRequest = null,
@@ -259,18 +262,30 @@ export function EgyptFallback2D({
           isNight ? 'border-[#E7B43C]/45 bg-[#362E29]' : 'border-[#FFFDF8] bg-[#E8CE9F]'
         }`}
       >
-        {/* Sealed Chamber of Wisdom Monumental Facade Strip (North) */}
+        {/* Chamber of Wisdom Monumental Facade Strip (North) */}
         <div
           className={`absolute left-[37%] right-[37%] top-0 h-[16%] flex items-center justify-center rounded-b-xl border-x-2 border-b-2 ${
-            isNight
-              ? 'border-[#E7B43C]/60 bg-[#2C241E] text-[#FDE68A]'
-              : 'border-[#B45309]/50 bg-[#B88B58] text-[#FFFBEB]'
+            chamberUnsealed
+              ? 'border-[#F2C66D] bg-[#0F766E] text-[#FEF3C7] shadow-md'
+              : isNight
+                ? 'border-[#E7B43C]/60 bg-[#2C241E] text-[#FDE68A]'
+                : 'border-[#B45309]/50 bg-[#B88B58] text-[#FFFBEB]'
           }`}
         >
           <span className="inline-flex items-center gap-1 px-2 text-[9px] font-extrabold tracking-tight">
-            <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
+            {chamberUnsealed ? (
+              <Sparkles className="h-3 w-3 shrink-0 text-[#F2C66D]" aria-hidden="true" />
+            ) : (
+              <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
+            )}
             <span>
-              {language === 'en' ? 'Sealed Chamber · Phase 5B+' : 'ประตูศิลาปิดผนึก · เฟส 5B+'}
+              {chamberUnsealed
+                ? language === 'en'
+                  ? 'Chamber Unsealed'
+                  : 'โถงแห่งปัญญาเปิดแล้ว'
+                : language === 'en'
+                  ? 'Sealed Chamber · Reflection Gate'
+                  : 'ประตูศิลาปิดผนึก · รอสะท้อนคิด'}
             </span>
           </span>
         </div>
@@ -346,6 +361,8 @@ export function EgyptFallback2D({
               <span className="flex items-center gap-1 whitespace-nowrap">
                 {visited ? (
                   <CheckCircle2 className="h-3 w-3 text-[#10B981]" aria-hidden="true" />
+                ) : isChamber && chamberUnsealed ? (
+                  <Sparkles className="h-3 w-3 text-[#F2C66D]" aria-hidden="true" />
                 ) : isChamber ? (
                   <Lock className="h-3 w-3 text-[#D97706]" aria-hidden="true" />
                 ) : poi.kind === 'npc' ? (

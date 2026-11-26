@@ -13,6 +13,7 @@ import type {
   CountryReplayState,
   EgyptInstructionJournalRecord,
   EgyptPerformEvidenceRecord,
+  EgyptPerformReflectionState,
   EgyptPracticeEvidenceRecord,
   LearningStageId,
   LocalProgressV1,
@@ -195,6 +196,13 @@ import {
   makeEgyptPerformRecordId,
   sanitizeEgyptPerformPortfolio,
 } from '../data/egyptPerform';
+import {
+  EGYPT_PERFORM_XP_REWARD,
+  hasAnyEgyptReflectionDraftContent,
+  isValidSubmittedEgyptReflection,
+  sanitizeEgyptPerformReflectionDraft,
+  TOTAL_EGYPT_MISSION_XP,
+} from '../data/egyptReflection';
 
 const VALID_JAIPUR_VOCAB_IDS = new Set<string>(JAIPUR_VOCAB_OBJECTS.map((o) => o.id));
 const VALID_KENYA_LANDMARK_IDS = new Set<string>(KENYA_LANDMARKS.map((l) => l.id));
@@ -248,9 +256,9 @@ export const COUNTRY_REPLAY_CAPABILITIES: Record<CountryId, CountryReplayCapabil
   },
   egypt: {
     countryId: 'egypt',
-    missionId: 'mission_egypt_expedition',
-    isImplemented: false,
-    supportedStages: [],
+    missionId: EGYPT_MISSION_ID,
+    isImplemented: true,
+    supportedStages: ['discover', 'build', 'practice', 'perform'],
   },
 };
 
@@ -945,6 +953,9 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
         let egyptPerformStarted: boolean | undefined;
         let egyptCompletedPerformIds: EgyptLandmarkId[] | undefined;
         let egyptPerformJournal: EgyptPerformEvidenceRecord[] | undefined;
+        let egyptPerformReflection: EgyptPerformReflectionState | undefined;
+        let egyptPerformCompleted: boolean | undefined;
+        let egyptChamberUnsealed: boolean | undefined;
         if (missionId === EGYPT_MISSION_ID) {
           if (!egyptDiscoverStarted) {
             egyptDiscoverStarted = false;
@@ -1091,6 +1102,7 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
             allPracticeChallengesDone &&
             rawHasPractice;
 
+          let legitPerformDone = false;
           if (legitPracticeDone) {
             egyptPerformStarted =
               typeof entry.egyptPerformStarted === 'boolean'
@@ -1127,6 +1139,35 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
               if (keptPortfolio.length > 0) {
                 egyptPerformJournal = keptPortfolio;
               }
+
+              const sanitizedReflection = sanitizeEgyptPerformReflectionDraft(
+                entry.egyptPerformReflection,
+              );
+              if (sanitizedReflection) {
+                egyptPerformReflection = sanitizedReflection;
+              }
+
+              const allPerformEvidenceDone =
+                performSeq.length >= EGYPT_PERFORM_MISSION_ORDER.length &&
+                keptPortfolio.length >= EGYPT_PERFORM_MISSION_ORDER.length;
+              const rawHasPerformCompletion =
+                sanitizedCompletedIds.includes(EGYPT_PERFORM_ACTIVITY_ID) ||
+                entry.egyptPerformCompleted === true ||
+                status === 'completed';
+
+              legitPerformDone =
+                allPerformEvidenceDone &&
+                isValidSubmittedEgyptReflection(egyptPerformReflection) &&
+                rawHasPerformCompletion;
+
+              // Never leave reflection as submitted if canonical completion isn't legitimate
+              if (!legitPerformDone && egyptPerformReflection?.status === 'submitted' && !allPerformEvidenceDone) {
+                egyptPerformReflection = {
+                  ...egyptPerformReflection,
+                  status: 'draft',
+                  submittedAt: undefined,
+                };
+              }
             } else {
               egyptPerformStarted = false;
             }
@@ -1134,14 +1175,24 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
             egyptPerformStarted = undefined;
           }
 
-          sanitizedCompletedIds = legitPracticeDone
-            ? [EGYPT_DISCOVERY_ACTIVITY_ID, EGYPT_BUILD_ACTIVITY_ID, EGYPT_PRACTICE_ACTIVITY_ID]
-            : legitBuildDone
-              ? [EGYPT_DISCOVERY_ACTIVITY_ID, EGYPT_BUILD_ACTIVITY_ID]
-              : legitDiscoverDone
-                ? [EGYPT_DISCOVERY_ACTIVITY_ID]
-                : [];
-          completedAt = undefined;
+          egyptPerformCompleted = legitPerformDone ? true : undefined;
+          egyptChamberUnsealed = legitPerformDone ? true : undefined;
+
+          sanitizedCompletedIds = legitPerformDone
+            ? [
+                EGYPT_DISCOVERY_ACTIVITY_ID,
+                EGYPT_BUILD_ACTIVITY_ID,
+                EGYPT_PRACTICE_ACTIVITY_ID,
+                EGYPT_PERFORM_ACTIVITY_ID,
+              ]
+            : legitPracticeDone
+              ? [EGYPT_DISCOVERY_ACTIVITY_ID, EGYPT_BUILD_ACTIVITY_ID, EGYPT_PRACTICE_ACTIVITY_ID]
+              : legitBuildDone
+                ? [EGYPT_DISCOVERY_ACTIVITY_ID, EGYPT_BUILD_ACTIVITY_ID]
+                : legitDiscoverDone
+                  ? [EGYPT_DISCOVERY_ACTIVITY_ID]
+                  : [];
+          completedAt = legitPerformDone ? (completedAt ?? defaults.updatedAt) : undefined;
           resolvedStage = legitPracticeDone
             ? 'perform'
             : legitBuildDone
@@ -1167,9 +1218,15 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
               legitPracticeDone ||
               egyptPerformStarted ||
               (egyptCompletedPerformIds && egyptCompletedPerformIds.length > 0) ||
-              (egyptPerformJournal && egyptPerformJournal.length > 0),
+              (egyptPerformJournal && egyptPerformJournal.length > 0) ||
+              egyptPerformReflection ||
+              legitPerformDone,
           );
-          resolvedStatus = hasEgyptActivity ? 'in_progress' : 'not_started';
+          resolvedStatus = legitPerformDone
+            ? 'completed'
+            : hasEgyptActivity
+              ? 'in_progress'
+              : 'not_started';
         }
         if (missionId === JAIPUR_MISSION_ID) {
           if (sanitizedCompletedIds.includes(FINAL_JAIPUR_SHOWCASE_ACTIVITY_ID)) {
@@ -1496,6 +1553,9 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
           ...(egyptPerformJournal && egyptPerformJournal.length > 0
             ? { egyptPerformJournal }
             : {}),
+          ...(egyptPerformReflection ? { egyptPerformReflection } : {}),
+          ...(egyptPerformCompleted !== undefined ? { egyptPerformCompleted } : {}),
+          ...(egyptChamberUnsealed !== undefined ? { egyptChamberUnsealed } : {}),
           ...(completedAt ? { completedAt } : {}),
         };
       }
@@ -1552,16 +1612,16 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
     scotlandPerformLegitCompleted &&
     afterScotlandStamps.includes(SCOTLAND_PASSPORT_STAMP_ID);
 
-  const sanitizedStamps = (
+  const egyptPerformLegitCompleted = Boolean(
+    sanitizedMissionProgress[EGYPT_MISSION_ID]?.completedActivityIds.includes(
+      EGYPT_PERFORM_ACTIVITY_ID,
+    ) && sanitizedMissionProgress[EGYPT_MISSION_ID]?.egyptPerformCompleted,
+  );
+  const afterAustraliaStamps = (
     australiaLegitUnlocked && australiaPerformLegitCompleted
       ? afterScotlandStamps
       : afterScotlandStamps.filter((s) => s !== AUSTRALIA_PASSPORT_STAMP_ID)
-  ).filter(
-    (s) =>
-      s !== 'stamp_australia_harbour' &&
-      s !== EGYPT_PASSPORT_STAMP_ID &&
-      s !== 'stamp_egypt_echoes',
-  );
+  ).filter((s) => s !== 'stamp_australia_harbour' && s !== 'stamp_egypt_echoes');
 
   if (!australiaLegitUnlocked && sanitizedMissionProgress[AUSTRALIA_MISSION_ID]) {
     sanitizedMissionProgress[AUSTRALIA_MISSION_ID] = {
@@ -1574,7 +1634,12 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
   const egyptLegitUnlocked =
     australiaLegitUnlocked &&
     australiaPerformLegitCompleted &&
-    sanitizedStamps.includes(AUSTRALIA_PASSPORT_STAMP_ID);
+    afterAustraliaStamps.includes(AUSTRALIA_PASSPORT_STAMP_ID);
+
+  const sanitizedStamps =
+    egyptLegitUnlocked && egyptPerformLegitCompleted
+      ? afterAustraliaStamps
+      : afterAustraliaStamps.filter((s) => s !== EGYPT_PASSPORT_STAMP_ID);
 
   // Preserve legitimate Egypt progress if a learner reached Stage 4 PERFORM in Australia under an
   // earlier premature-Egypt bug; otherwise scrub unauthorized/spoofed Egypt entries.
@@ -1657,6 +1722,7 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
         if (!capability.isImplemented) continue;
         if (countryId === 'scotland' && !kenyaPerformLegitCompleted) continue;
         if (countryId === 'australia' && !australiaLegitUnlocked) continue;
+        if (countryId === 'egypt' && !egyptLegitUnlocked) continue;
 
         const attemptNumber =
           typeof rawAttempt.attemptNumber === 'number' &&
@@ -2451,6 +2517,277 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
             ...(australiaPerformReflection ? { australiaPerformReflection } : {}),
             ...(australiaPerformCompleted !== undefined ? { australiaPerformCompleted } : {}),
           };
+        } else if (countryId === 'egypt') {
+          const egyptEntered =
+            typeof rawAttempt.egyptEntered === 'boolean' ? rawAttempt.egyptEntered : undefined;
+          const egyptExploredPoiIds = Array.isArray(rawAttempt.egyptExploredPoiIds)
+            ? Array.from(
+                new Set(
+                  rawAttempt.egyptExploredPoiIds.filter(
+                    (x): x is string =>
+                      typeof x === 'string' && VALID_EGYPT_LANDMARK_IDS.has(x),
+                  ),
+                ),
+              )
+            : undefined;
+          const egyptMetNpcIds = Array.isArray(rawAttempt.egyptMetNpcIds)
+            ? Array.from(
+                new Set(
+                  rawAttempt.egyptMetNpcIds.filter(
+                    (x): x is string => typeof x === 'string' && VALID_EGYPT_NPC_IDS.has(x),
+                  ),
+                ),
+              )
+            : undefined;
+          const egyptDiscoverStarted =
+            typeof rawAttempt.egyptDiscoverStarted === 'boolean'
+              ? rawAttempt.egyptDiscoverStarted
+              : undefined;
+          const egyptCompletedDiscoverIds =
+            egyptDiscoverStarted && Array.isArray(rawAttempt.egyptCompletedDiscoverIds)
+              ? getSequentialEgyptDiscoverPrefix(
+                  rawAttempt.egyptCompletedDiscoverIds.filter(
+                    (x): x is string => typeof x === 'string',
+                  ),
+                )
+              : undefined;
+
+          const hasDiscover =
+            Boolean(egyptDiscoverStarted) &&
+            (egyptCompletedDiscoverIds?.length ?? 0) >= EGYPT_DISCOVER_MISSION_ORDER.length &&
+            completedIds.includes(EGYPT_DISCOVERY_ACTIVITY_ID);
+
+          let egyptBuildStarted: boolean | undefined;
+          let egyptCompletedBuildChallengeIds: string[] | undefined;
+          let egyptCompletedBuildIds: EgyptLandmarkId[] | undefined;
+          let egyptBuildJournal: EgyptInstructionJournalRecord[] | undefined;
+          let egyptPracticeStarted: boolean | undefined;
+          let egyptCompletedPracticeChallengeIds: string[] | undefined;
+          let egyptCompletedPracticeIds: EgyptLandmarkId[] | undefined;
+          let egyptPracticeJournal: EgyptPracticeEvidenceRecord[] | undefined;
+          let egyptPerformStarted: boolean | undefined;
+          let egyptCompletedPerformIds: EgyptLandmarkId[] | undefined;
+          let egyptPerformJournal: EgyptPerformEvidenceRecord[] | undefined;
+          let egyptPerformReflection: EgyptPerformReflectionState | undefined;
+          let egyptPerformCompleted: boolean | undefined;
+          let egyptChamberUnsealed: boolean | undefined;
+
+          if (hasDiscover) {
+            egyptBuildStarted =
+              typeof rawAttempt.egyptBuildStarted === 'boolean'
+                ? rawAttempt.egyptBuildStarted
+                : undefined;
+            if (egyptBuildStarted) {
+              const rawSolvedChallenges = Array.isArray(rawAttempt.egyptCompletedBuildChallengeIds)
+                ? Array.from(
+                    new Set(
+                      rawAttempt.egyptCompletedBuildChallengeIds.filter(
+                        (x): x is string =>
+                          typeof x === 'string' && VALID_EGYPT_BUILD_CHALLENGE_ID_SET.has(x),
+                      ),
+                    ),
+                  )
+                : [];
+              if (rawSolvedChallenges.length > 0) {
+                egyptCompletedBuildChallengeIds = rawSolvedChallenges;
+              }
+              const buildSeq = getSequentialEgyptBuildPrefix(
+                Array.isArray(rawAttempt.egyptCompletedBuildIds)
+                  ? rawAttempt.egyptCompletedBuildIds.filter(
+                      (x): x is string => typeof x === 'string',
+                    )
+                  : undefined,
+                rawSolvedChallenges,
+              );
+              if (buildSeq.length > 0) egyptCompletedBuildIds = buildSeq;
+              const solvedChallengeSet = new Set(rawSolvedChallenges);
+              const cleanedJournal = sanitizeEgyptBuildJournal(rawAttempt.egyptBuildJournal)?.filter(
+                (rec) => solvedChallengeSet.has(rec.challengeId),
+              );
+              if (cleanedJournal && cleanedJournal.length > 0) egyptBuildJournal = cleanedJournal;
+            }
+          }
+
+          const solvedBuildSet = new Set(egyptCompletedBuildChallengeIds ?? []);
+          const hasBuild =
+            hasDiscover &&
+            Boolean(egyptBuildStarted) &&
+            (egyptCompletedBuildIds?.length ?? 0) >= EGYPT_BUILD_MISSION_ORDER.length &&
+            ALL_EGYPT_BUILD_CHALLENGE_IDS.every((cid) => solvedBuildSet.has(cid)) &&
+            completedIds.includes(EGYPT_BUILD_ACTIVITY_ID);
+
+          if (hasBuild) {
+            egyptPracticeStarted =
+              typeof rawAttempt.egyptPracticeStarted === 'boolean'
+                ? rawAttempt.egyptPracticeStarted
+                : undefined;
+            if (egyptPracticeStarted) {
+              const rawSolvedPractice = Array.isArray(rawAttempt.egyptCompletedPracticeChallengeIds)
+                ? Array.from(
+                    new Set(
+                      rawAttempt.egyptCompletedPracticeChallengeIds.filter(
+                        (x): x is string =>
+                          typeof x === 'string' && VALID_EGYPT_PRACTICE_CHALLENGE_ID_SET.has(x),
+                      ),
+                    ),
+                  )
+                : [];
+              if (rawSolvedPractice.length > 0) {
+                egyptCompletedPracticeChallengeIds = rawSolvedPractice;
+              }
+              const practiceSeq = getSequentialEgyptPracticePrefix(
+                Array.isArray(rawAttempt.egyptCompletedPracticeIds)
+                  ? rawAttempt.egyptCompletedPracticeIds.filter(
+                      (x): x is string => typeof x === 'string',
+                    )
+                  : undefined,
+                rawSolvedPractice,
+              );
+              if (practiceSeq.length > 0) egyptCompletedPracticeIds = practiceSeq;
+              const solvedPracticeSet = new Set(rawSolvedPractice);
+              const cleanedPracticeJournal = sanitizeEgyptPracticeJournal(
+                rawAttempt.egyptPracticeJournal,
+              )?.filter((rec) => solvedPracticeSet.has(rec.challengeId));
+              if (cleanedPracticeJournal && cleanedPracticeJournal.length > 0) {
+                egyptPracticeJournal = cleanedPracticeJournal;
+              }
+            }
+          }
+
+          const solvedPracticeSet = new Set(egyptCompletedPracticeChallengeIds ?? []);
+          const hasPractice =
+            hasBuild &&
+            Boolean(egyptPracticeStarted) &&
+            (egyptCompletedPracticeIds?.length ?? 0) >= EGYPT_PRACTICE_MISSION_ORDER.length &&
+            ALL_EGYPT_PRACTICE_CHALLENGE_IDS.every((cid) => solvedPracticeSet.has(cid)) &&
+            completedIds.includes(EGYPT_PRACTICE_ACTIVITY_ID);
+
+          if (hasPractice) {
+            egyptPerformStarted =
+              typeof rawAttempt.egyptPerformStarted === 'boolean'
+                ? rawAttempt.egyptPerformStarted
+                : undefined;
+            if (egyptPerformStarted) {
+              const cleanedPortfolio = sanitizeEgyptPerformPortfolio(
+                rawAttempt.egyptPerformJournal,
+              );
+              const performSeq = getSequentialEgyptPerformPrefix(
+                Array.isArray(rawAttempt.egyptCompletedPerformIds)
+                  ? rawAttempt.egyptCompletedPerformIds.filter(
+                      (x): x is string => typeof x === 'string',
+                    )
+                  : undefined,
+                cleanedPortfolio,
+              );
+              if (performSeq.length > 0) egyptCompletedPerformIds = performSeq;
+              const seqSet = new Set(performSeq);
+              const keptPortfolio = (cleanedPortfolio ?? []).filter((rec) =>
+                seqSet.has(rec.landmarkId as EgyptLandmarkId),
+              );
+              if (keptPortfolio.length > 0) egyptPerformJournal = keptPortfolio;
+              egyptPerformReflection = sanitizeEgyptPerformReflectionDraft(
+                rawAttempt.egyptPerformReflection,
+              );
+            }
+          }
+
+          const allPerformEvidenceDone =
+            (egyptCompletedPerformIds?.length ?? 0) >= EGYPT_PERFORM_MISSION_ORDER.length &&
+            (egyptPerformJournal?.length ?? 0) >= EGYPT_PERFORM_MISSION_ORDER.length;
+          const rawHasPerformCompletion =
+            completedIds.includes(EGYPT_PERFORM_ACTIVITY_ID) ||
+            rawAttempt.egyptPerformCompleted === true ||
+            rawAttempt.status === 'completed';
+          const hasPerform =
+            hasPractice &&
+            Boolean(egyptPerformStarted) &&
+            allPerformEvidenceDone &&
+            isValidSubmittedEgyptReflection(egyptPerformReflection) &&
+            rawHasPerformCompletion;
+
+          if (!hasPerform && egyptPerformReflection?.status === 'submitted' && !allPerformEvidenceDone) {
+            egyptPerformReflection = {
+              ...egyptPerformReflection,
+              status: 'draft',
+              submittedAt: undefined,
+            };
+          }
+
+          egyptPerformCompleted = hasPerform ? true : undefined;
+          egyptChamberUnsealed = hasPerform ? true : undefined;
+          const sanitizedAttemptIds = hasPerform
+            ? [
+                EGYPT_DISCOVERY_ACTIVITY_ID,
+                EGYPT_BUILD_ACTIVITY_ID,
+                EGYPT_PRACTICE_ACTIVITY_ID,
+                EGYPT_PERFORM_ACTIVITY_ID,
+              ]
+            : hasPractice
+              ? [EGYPT_DISCOVERY_ACTIVITY_ID, EGYPT_BUILD_ACTIVITY_ID, EGYPT_PRACTICE_ACTIVITY_ID]
+              : hasBuild
+                ? [EGYPT_DISCOVERY_ACTIVITY_ID, EGYPT_BUILD_ACTIVITY_ID]
+                : hasDiscover
+                  ? [EGYPT_DISCOVERY_ACTIVITY_ID]
+                  : [];
+          const resolvedStage: LearningStageId = hasPractice
+            ? 'perform'
+            : hasBuild
+              ? 'practice'
+              : hasDiscover
+                ? 'build'
+                : 'discover';
+          const resolvedStatus: 'in_progress' | 'completed' = hasPerform
+            ? 'completed'
+            : 'in_progress';
+          completedAt = hasPerform ? (completedAt ?? defaults.updatedAt) : undefined;
+
+          activeAttempts.egypt = {
+            countryId: 'egypt',
+            attemptNumber,
+            status: resolvedStatus,
+            currentStage: resolvedStage,
+            completedActivityIds: sanitizedAttemptIds,
+            startedAt,
+            ...(completedAt ? { completedAt } : {}),
+            ...(egyptEntered !== undefined ? { egyptEntered } : {}),
+            ...(egyptExploredPoiIds && egyptExploredPoiIds.length > 0
+              ? { egyptExploredPoiIds }
+              : {}),
+            ...(egyptMetNpcIds && egyptMetNpcIds.length > 0 ? { egyptMetNpcIds } : {}),
+            ...(egyptDiscoverStarted ? { egyptDiscoverStarted } : {}),
+            ...(egyptCompletedDiscoverIds && egyptCompletedDiscoverIds.length > 0
+              ? { egyptCompletedDiscoverIds }
+              : {}),
+            ...(egyptBuildStarted ? { egyptBuildStarted } : {}),
+            ...(egyptCompletedBuildChallengeIds && egyptCompletedBuildChallengeIds.length > 0
+              ? { egyptCompletedBuildChallengeIds }
+              : {}),
+            ...(egyptCompletedBuildIds && egyptCompletedBuildIds.length > 0
+              ? { egyptCompletedBuildIds }
+              : {}),
+            ...(egyptBuildJournal && egyptBuildJournal.length > 0 ? { egyptBuildJournal } : {}),
+            ...(egyptPracticeStarted ? { egyptPracticeStarted } : {}),
+            ...(egyptCompletedPracticeChallengeIds &&
+            egyptCompletedPracticeChallengeIds.length > 0
+              ? { egyptCompletedPracticeChallengeIds }
+              : {}),
+            ...(egyptCompletedPracticeIds && egyptCompletedPracticeIds.length > 0
+              ? { egyptCompletedPracticeIds }
+              : {}),
+            ...(egyptPracticeJournal && egyptPracticeJournal.length > 0
+              ? { egyptPracticeJournal }
+              : {}),
+            ...(egyptPerformStarted ? { egyptPerformStarted } : {}),
+            ...(egyptCompletedPerformIds && egyptCompletedPerformIds.length > 0
+              ? { egyptCompletedPerformIds }
+              : {}),
+            ...(egyptPerformJournal && egyptPerformJournal.length > 0
+              ? { egyptPerformJournal }
+              : {}),
+            ...(egyptPerformReflection ? { egyptPerformReflection } : {}),
+            ...(egyptPerformCompleted !== undefined ? { egyptPerformCompleted } : {}),
+            ...(egyptChamberUnsealed !== undefined ? { egyptChamberUnsealed } : {}),
+          };
         }
 
         const existingHist = history[countryId];
@@ -2560,7 +2897,8 @@ export function migrateAndValidateProgress(raw: unknown): LocalProgressV1 {
   const egyptMaxXp = egyptLegitUnlocked
     ? (egyptActivities.includes(EGYPT_DISCOVERY_ACTIVITY_ID) ? EGYPT_DISCOVERY_XP_REWARD : 0) +
       (egyptActivities.includes(EGYPT_BUILD_ACTIVITY_ID) ? EGYPT_BUILD_XP_REWARD : 0) +
-      (egyptActivities.includes(EGYPT_PRACTICE_ACTIVITY_ID) ? EGYPT_PRACTICE_XP_REWARD : 0)
+      (egyptActivities.includes(EGYPT_PRACTICE_ACTIVITY_ID) ? EGYPT_PRACTICE_XP_REWARD : 0) +
+      (egyptActivities.includes(EGYPT_PERFORM_ACTIVITY_ID) ? EGYPT_PERFORM_XP_REWARD : 0)
     : 0;
   const maxLegitimateXp =
     indiaMaxXp + kenyaMaxXp + scotlandMaxXp + australiaMaxXp + egyptMaxXp;
@@ -2775,6 +3113,26 @@ export function hasCountryStartedOrCompleted(
         entry.status !== 'not_started',
     );
   }
+  if (countryId === 'egypt') {
+    const entry = progress.missionProgress[EGYPT_MISSION_ID];
+    if (!entry) return false;
+    return Boolean(
+      entry.egyptEntered ||
+        entry.egyptDiscoverStarted ||
+        entry.egyptBuildStarted ||
+        entry.egyptPracticeStarted ||
+        entry.egyptPerformStarted ||
+        entry.egyptPerformCompleted ||
+        (entry.egyptExploredPoiIds?.length ?? 0) > 0 ||
+        (entry.egyptMetNpcIds?.length ?? 0) > 0 ||
+        (entry.egyptCompletedDiscoverIds?.length ?? 0) > 0 ||
+        (entry.egyptCompletedBuildIds?.length ?? 0) > 0 ||
+        (entry.egyptCompletedPracticeIds?.length ?? 0) > 0 ||
+        (entry.egyptCompletedPerformIds?.length ?? 0) > 0 ||
+        entry.completedActivityIds.length > 0 ||
+        entry.status !== 'not_started',
+    );
+  }
   return false;
 }
 
@@ -2788,6 +3146,9 @@ export function canReplayCountry(
     return false;
   }
   if (countryId === 'australia' && !isAustraliaUnlocked(progress)) {
+    return false;
+  }
+  if (countryId === 'egypt' && !isEgyptUnlocked(progress)) {
     return false;
   }
   return hasCountryStartedOrCompleted(progress, countryId);
@@ -6121,6 +6482,34 @@ export function isEgyptUnlocked(progress: LocalProgressV1): boolean {
 }
 
 export function getEgyptEffectiveEntry(progress: LocalProgressV1): MissionProgressEntry {
+  const active = getActiveReplayAttempt(progress, 'egypt');
+  if (active) {
+    return {
+      status: active.status,
+      currentStage: active.currentStage,
+      completedActivityIds: active.completedActivityIds,
+      egyptEntered: active.egyptEntered,
+      egyptExploredPoiIds: active.egyptExploredPoiIds,
+      egyptMetNpcIds: active.egyptMetNpcIds,
+      egyptDiscoverStarted: active.egyptDiscoverStarted,
+      egyptCompletedDiscoverIds: active.egyptCompletedDiscoverIds,
+      egyptBuildStarted: active.egyptBuildStarted,
+      egyptCompletedBuildChallengeIds: active.egyptCompletedBuildChallengeIds,
+      egyptCompletedBuildIds: active.egyptCompletedBuildIds,
+      egyptBuildJournal: active.egyptBuildJournal,
+      egyptPracticeStarted: active.egyptPracticeStarted,
+      egyptCompletedPracticeChallengeIds: active.egyptCompletedPracticeChallengeIds,
+      egyptCompletedPracticeIds: active.egyptCompletedPracticeIds,
+      egyptPracticeJournal: active.egyptPracticeJournal,
+      egyptPerformStarted: active.egyptPerformStarted,
+      egyptCompletedPerformIds: active.egyptCompletedPerformIds,
+      egyptPerformJournal: active.egyptPerformJournal,
+      egyptPerformReflection: active.egyptPerformReflection,
+      egyptPerformCompleted: active.egyptPerformCompleted,
+      egyptChamberUnsealed: active.egyptChamberUnsealed,
+      completedAt: active.completedAt,
+    };
+  }
   return (
     progress.missionProgress[EGYPT_MISSION_ID] ?? {
       status: 'not_started',
@@ -6428,36 +6817,187 @@ export function isEgyptPerformEvidenceComplete(progress: LocalProgressV1): boole
   return completed.length >= EGYPT_PERFORM_MISSION_ORDER.length;
 }
 
+function hasAllEgyptPerformEvidenceEntry(
+  entry: MissionProgressEntry | CountryReplayAttempt | undefined,
+): boolean {
+  if (!entry || !entry.egyptPerformStarted) return false;
+  const completed = getSequentialEgyptPerformPrefix(
+    entry.egyptCompletedPerformIds,
+    entry.egyptPerformJournal,
+  );
+  if (completed.length < EGYPT_PERFORM_MISSION_ORDER.length) return false;
+  const cleanPortfolio = sanitizeEgyptPerformPortfolio(entry.egyptPerformJournal) ?? [];
+  const portfolioSet = new Set(cleanPortfolio.map((r) => r.landmarkId as EgyptLandmarkId));
+  return EGYPT_PERFORM_MISSION_ORDER.every((id) => portfolioSet.has(id));
+}
+
+function hasCanonicalEgyptPerformEntry(
+  entry: MissionProgressEntry | CountryReplayAttempt | undefined,
+): boolean {
+  if (!entry) return false;
+  if (!entry.egyptDiscoverStarted) return false;
+  if (
+    getSequentialEgyptDiscoverPrefix(entry.egyptCompletedDiscoverIds).length <
+      EGYPT_DISCOVER_MISSION_ORDER.length ||
+    !entry.completedActivityIds.includes(EGYPT_DISCOVERY_ACTIVITY_ID)
+  ) {
+    return false;
+  }
+  if (!entry.egyptBuildStarted) return false;
+  const buildSolved = new Set(
+    (entry.egyptCompletedBuildChallengeIds ?? []).filter((id) =>
+      VALID_EGYPT_BUILD_CHALLENGE_ID_SET.has(id),
+    ),
+  );
+  if (
+    getSequentialEgyptBuildPrefix(
+      entry.egyptCompletedBuildIds,
+      entry.egyptCompletedBuildChallengeIds,
+    ).length < EGYPT_BUILD_MISSION_ORDER.length ||
+    !ALL_EGYPT_BUILD_CHALLENGE_IDS.every((cid) => buildSolved.has(cid)) ||
+    !entry.completedActivityIds.includes(EGYPT_BUILD_ACTIVITY_ID)
+  ) {
+    return false;
+  }
+  if (!entry.egyptPracticeStarted) return false;
+  const practiceSolved = new Set(
+    (entry.egyptCompletedPracticeChallengeIds ?? []).filter((id) =>
+      VALID_EGYPT_PRACTICE_CHALLENGE_ID_SET.has(id),
+    ),
+  );
+  if (
+    getSequentialEgyptPracticePrefix(
+      entry.egyptCompletedPracticeIds,
+      entry.egyptCompletedPracticeChallengeIds,
+    ).length < EGYPT_PRACTICE_MISSION_ORDER.length ||
+    !ALL_EGYPT_PRACTICE_CHALLENGE_IDS.every((cid) => practiceSolved.has(cid)) ||
+    !entry.completedActivityIds.includes(EGYPT_PRACTICE_ACTIVITY_ID)
+  ) {
+    return false;
+  }
+  if (!hasAllEgyptPerformEvidenceEntry(entry)) return false;
+  if (!isValidSubmittedEgyptReflection(entry.egyptPerformReflection)) return false;
+  return (
+    entry.status === 'completed' &&
+    entry.egyptPerformCompleted === true &&
+    entry.egyptChamberUnsealed === true &&
+    entry.completedActivityIds.includes(EGYPT_PERFORM_ACTIVITY_ID)
+  );
+}
+
+/**
+ * LIFETIME Egypt PERFORM & Final Reflection completion (persists across Replay Attempts).
+ */
+export function isEgyptPerformCompleted(progress: LocalProgressV1): boolean {
+  if (!isEgyptUnlocked(progress)) return false;
+  return hasCanonicalEgyptPerformEntry(progress.missionProgress[EGYPT_MISSION_ID]);
+}
+
+/**
+ * Canonical predicate for LIFETIME Egypt country completion (World 5 complete & Stamp eligible).
+ */
+export function isEgyptMissionCompleted(progress: LocalProgressV1): boolean {
+  return isEgyptPerformCompleted(progress);
+}
+
+/**
+ * CURRENT ATTEMPT (or lifetime when not replaying) Egypt PERFORM completion.
+ */
+export function isEgyptAttemptPerformCompleted(progress: LocalProgressV1): boolean {
+  if (!isEgyptPerformUnlocked(progress)) return false;
+  return hasCanonicalEgyptPerformEntry(getEgyptEffectiveEntry(progress));
+}
+
 export function isEgyptPerformAwaitingReflection(progress: LocalProgressV1): boolean {
-  return isEgyptPerformEvidenceComplete(progress);
+  if (!isEgyptPerformUnlocked(progress)) return false;
+  const entry = getEgyptEffectiveEntry(progress);
+  return hasAllEgyptPerformEvidenceEntry(entry) && !hasCanonicalEgyptPerformEntry(entry);
+}
+
+export function isEgyptChamberUnsealed(progress: LocalProgressV1): boolean {
+  if (hasActiveCountryReplay(progress, 'egypt')) {
+    return isEgyptAttemptPerformCompleted(progress);
+  }
+  return isEgyptPerformCompleted(progress);
+}
+
+export function getEgyptPerformReflection(
+  progress: LocalProgressV1,
+): EgyptPerformReflectionState | null {
+  if (!isEgyptUnlocked(progress)) return null;
+  const entry = getEgyptEffectiveEntry(progress);
+  return sanitizeEgyptPerformReflectionDraft(entry.egyptPerformReflection) ?? null;
+}
+
+export function hasEgyptReflectionDraft(progress: LocalProgressV1): boolean {
+  const reflection = getEgyptPerformReflection(progress);
+  return Boolean(
+    reflection &&
+      reflection.status === 'draft' &&
+      hasAnyEgyptReflectionDraftContent(reflection),
+  );
+}
+
+export function isGlobalAdventureCompleted(progress: LocalProgressV1): boolean {
+  return (
+    isJaipurMissionCompleted(progress) &&
+    isKenyaMissionCompleted(progress) &&
+    isScotlandMissionCompleted(progress) &&
+    isAustraliaMissionCompleted(progress) &&
+    isEgyptMissionCompleted(progress) &&
+    progress.rewards.stamps.includes(INDIA_PASSPORT_STAMP_ID) &&
+    progress.rewards.stamps.includes(KENYA_PASSPORT_STAMP_ID) &&
+    progress.rewards.stamps.includes(SCOTLAND_PASSPORT_STAMP_ID) &&
+    progress.rewards.stamps.includes(AUSTRALIA_PASSPORT_STAMP_ID) &&
+    progress.rewards.stamps.includes(EGYPT_PASSPORT_STAMP_ID)
+  );
 }
 
 /**
- * Phase 5E.1 strictly preserves Egypt country status as `in_progress` without
- * granting Final Self-Reflection submission, Egypt Passport Stamp, or +70 XP.
+ * Saves an in-progress Final Self-Reflection draft (+0 XP, +0 stamps, keeps Chamber sealed).
+ * Never downgrades an already canonically completed reflection back to draft.
  */
-export function isEgyptPerformCompleted(_progress: LocalProgressV1): boolean {
-  return false;
-}
-
-/**
- * Starts Egypt Stage 4 PERFORM ("The Royal Expedition Grand Showcase") (+0 XP, +0 stamps).
- * Requires Egypt unlocked + Stage 3 PRACTICE legitimately completed.
- */
-export function startEgyptPerformMission(progress: LocalProgressV1): LocalProgressV1 {
+export function saveEgyptPerformReflectionDraft(
+  progress: LocalProgressV1,
+  draftState: EgyptPerformReflectionState,
+): LocalProgressV1 {
   if (!isEgyptPerformUnlocked(progress)) {
     return progress;
   }
-  const existing = getEgyptEffectiveEntry(progress);
-  const currentMet = getEgyptMetNpcIds(progress);
-  const nextMet = currentMet.includes('npc_layla') ? currentMet : [...currentMet, 'npc_layla'];
+  const normalizedInput: EgyptPerformReflectionState = {
+    ...draftState,
+    status: 'draft',
+    submittedAt: undefined,
+    updatedAt: new Date().toISOString(),
+  };
+  const cleanDraft = sanitizeEgyptPerformReflectionDraft(normalizedInput);
+  if (!cleanDraft) {
+    return progress;
+  }
 
-  if (
-    existing.egyptPerformStarted &&
-    existing.egyptEntered &&
-    existing.status === 'in_progress' &&
-    currentMet.includes('npc_layla')
-  ) {
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  if (activeReplay) {
+    if (!activeReplay.egyptPerformStarted || hasCanonicalEgyptPerformEntry(activeReplay)) {
+      return progress;
+    }
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            egyptPerformReflection: cleanDraft,
+          },
+        },
+      },
+    };
+  }
+
+  const existing = progress.missionProgress[EGYPT_MISSION_ID];
+  if (!existing || !existing.egyptPerformStarted || hasCanonicalEgyptPerformEntry(existing)) {
     return progress;
   }
 
@@ -6469,6 +7009,245 @@ export function startEgyptPerformMission(progress: LocalProgressV1): LocalProgre
         ...existing,
         status: 'in_progress',
         currentStage: 'perform',
+        egyptPerformReflection: cleanDraft,
+      },
+    },
+  };
+}
+
+/**
+ * Canonical Egypt completion transaction:
+ * - Requires DISCOVER + BUILD + PRACTICE + all 5 PERFORM portfolio records + valid submitted Final Self-Reflection.
+ * - Grants EGYPT_PERFORM_XP_REWARD (+100 XP: 1,150 -> 1,250) ONCE on first lifetime completion.
+ * - Awards `stamp_egypt_expedition` ONCE (5/5 Passport Stamps).
+ * - Unseals the Chamber of Wisdom and marks `mission_egypt_expedition` completed.
+ * - Supports Country Replay & repeated calls idempotently without duplicate XP or stamps.
+ */
+export function completeEgyptPerformAndReflection(
+  progress: LocalProgressV1,
+  reflectionState: EgyptPerformReflectionState,
+): LocalProgressV1 {
+  if (!isEgyptUnlocked(progress) || !isEgyptPerformUnlocked(progress)) {
+    return progress;
+  }
+  const now = new Date().toISOString();
+  const submittedCandidate: EgyptPerformReflectionState = {
+    ...reflectionState,
+    status: 'submitted',
+    updatedAt: reflectionState.updatedAt || now,
+    submittedAt: reflectionState.submittedAt || now,
+  };
+  const cleanSubmitted = sanitizeEgyptPerformReflectionDraft(submittedCandidate);
+  if (!isValidSubmittedEgyptReflection(cleanSubmitted)) {
+    return progress;
+  }
+
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  if (activeReplay) {
+    if (!hasAllEgyptPerformEvidenceEntry(activeReplay)) {
+      return progress;
+    }
+    const completedIds = getSequentialEgyptPerformPrefix(
+      activeReplay.egyptCompletedPerformIds,
+      activeReplay.egyptPerformJournal,
+    );
+    const attemptWasCompleted = hasCanonicalEgyptPerformEntry(activeReplay);
+
+    const lifetime = progress.missionProgress[EGYPT_MISSION_ID] ?? {
+      status: 'not_started' as const,
+      currentStage: 'discover' as const,
+      completedActivityIds: [],
+    };
+    const lifetimeAlreadyCanonical = hasCanonicalEgyptPerformEntry(lifetime);
+    const lifetimeCanGrant =
+      !lifetimeAlreadyCanonical &&
+      lifetime.completedActivityIds.includes(EGYPT_PRACTICE_ACTIVITY_ID) &&
+      !lifetime.completedActivityIds.includes(EGYPT_PERFORM_ACTIVITY_ID);
+    const lifetimeNeedsStamp = !progress.rewards.stamps.includes(EGYPT_PASSPORT_STAMP_ID);
+
+    const replayState = getReplayState(progress);
+    const prevHistory = getCountryReplayHistory(progress, 'egypt');
+    const nextCompletedReplayCount = attemptWasCompleted
+      ? prevHistory.completedReplayCount
+      : prevHistory.completedReplayCount + 1;
+
+    return {
+      ...progress,
+      rewards: {
+        ...progress.rewards,
+        xp: lifetimeCanGrant
+          ? progress.rewards.xp + EGYPT_PERFORM_XP_REWARD
+          : progress.rewards.xp,
+        stamps:
+          (lifetimeCanGrant || isEgyptMissionCompleted(progress)) && lifetimeNeedsStamp
+            ? [...progress.rewards.stamps, EGYPT_PASSPORT_STAMP_ID]
+            : progress.rewards.stamps,
+      },
+      missionProgress: lifetimeCanGrant
+        ? {
+            ...progress.missionProgress,
+            [EGYPT_MISSION_ID]: {
+              ...lifetime,
+              status: 'completed',
+              currentStage: 'perform',
+              egyptEntered: true,
+              egyptPerformStarted: true,
+              egyptCompletedPerformIds: completedIds,
+              egyptPerformJournal: activeReplay.egyptPerformJournal,
+              egyptPerformReflection: cleanSubmitted,
+              egyptPerformCompleted: true,
+              egyptChamberUnsealed: true,
+              completedActivityIds: [
+                ...lifetime.completedActivityIds,
+                EGYPT_PERFORM_ACTIVITY_ID,
+              ],
+              completedAt: lifetime.completedAt ?? now,
+            },
+          }
+        : progress.missionProgress,
+      replayState: {
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: 'completed',
+            currentStage: 'perform',
+            egyptEntered: true,
+            egyptPerformStarted: true,
+            egyptCompletedPerformIds: completedIds,
+            egyptPerformReflection: cleanSubmitted,
+            egyptPerformCompleted: true,
+            egyptChamberUnsealed: true,
+            completedActivityIds: attemptWasCompleted
+              ? activeReplay.completedActivityIds
+              : [...activeReplay.completedActivityIds, EGYPT_PERFORM_ACTIVITY_ID],
+            completedAt: activeReplay.completedAt ?? now,
+          },
+        },
+        history: {
+          ...replayState.history,
+          egypt: {
+            ...prevHistory,
+            totalAttemptsStarted: Math.max(
+              prevHistory.totalAttemptsStarted,
+              activeReplay.attemptNumber,
+            ),
+            completedReplayCount: nextCompletedReplayCount,
+            lastReplayCompletedAt: attemptWasCompleted
+              ? (prevHistory.lastReplayCompletedAt ?? now)
+              : now,
+          },
+        },
+      },
+    };
+  }
+
+  const existing = progress.missionProgress[EGYPT_MISSION_ID];
+  if (!existing || !hasAllEgyptPerformEvidenceEntry(existing)) {
+    return progress;
+  }
+
+  const completedIds = getSequentialEgyptPerformPrefix(
+    existing.egyptCompletedPerformIds,
+    existing.egyptPerformJournal,
+  );
+  const alreadyCompletedActivity =
+    existing.completedActivityIds.includes(EGYPT_PERFORM_ACTIVITY_ID) &&
+    hasCanonicalEgyptPerformEntry(existing);
+  const alreadyHasStamp = progress.rewards.stamps.includes(EGYPT_PASSPORT_STAMP_ID);
+
+  const nextCompletedIds = existing.completedActivityIds.includes(EGYPT_PERFORM_ACTIVITY_ID)
+    ? existing.completedActivityIds
+    : [...existing.completedActivityIds, EGYPT_PERFORM_ACTIVITY_ID];
+  const nextStamps = alreadyHasStamp
+    ? progress.rewards.stamps
+    : [...progress.rewards.stamps, EGYPT_PASSPORT_STAMP_ID];
+  const nextXp = alreadyCompletedActivity
+    ? progress.rewards.xp
+    : progress.rewards.xp + EGYPT_PERFORM_XP_REWARD;
+
+  return {
+    ...progress,
+    rewards: {
+      ...progress.rewards,
+      xp: nextXp,
+      stamps: nextStamps,
+    },
+    missionProgress: {
+      ...progress.missionProgress,
+      [EGYPT_MISSION_ID]: {
+        ...existing,
+        status: 'completed',
+        currentStage: 'perform',
+        egyptEntered: true,
+        egyptPerformStarted: true,
+        egyptCompletedPerformIds: completedIds,
+        egyptPerformReflection: cleanSubmitted,
+        egyptPerformCompleted: true,
+        egyptChamberUnsealed: true,
+        completedActivityIds: nextCompletedIds,
+        completedAt: existing.completedAt ?? now,
+      },
+    },
+  };
+}
+
+/**
+ * Starts Egypt Stage 4 PERFORM ("The Royal Expedition Grand Showcase") (+0 XP, +0 stamps).
+ * Requires Egypt unlocked + Stage 3 PRACTICE legitimately completed.
+ */
+export function startEgyptPerformMission(progress: LocalProgressV1): LocalProgressV1 {
+  if (!isEgyptPerformUnlocked(progress)) {
+    return progress;
+  }
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  if (activeReplay) {
+    const currentMet = getEgyptMetNpcIds(progress);
+    const nextMet = currentMet.includes('npc_layla') ? currentMet : [...currentMet, 'npc_layla'];
+    if (activeReplay.egyptPerformStarted && activeReplay.egyptEntered && currentMet.includes('npc_layla')) {
+      return progress;
+    }
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: hasCanonicalEgyptPerformEntry(activeReplay) ? 'completed' : 'in_progress',
+            currentStage: 'perform',
+            egyptEntered: true,
+            egyptMetNpcIds: nextMet,
+            egyptPerformStarted: true,
+          },
+        },
+      },
+    };
+  }
+
+  const existing = getEgyptEffectiveEntry(progress);
+  const currentMet = getEgyptMetNpcIds(progress);
+  const nextMet = currentMet.includes('npc_layla') ? currentMet : [...currentMet, 'npc_layla'];
+
+  if (
+    existing.egyptPerformStarted &&
+    existing.egyptEntered &&
+    (existing.status === 'in_progress' || existing.status === 'completed') &&
+    currentMet.includes('npc_layla')
+  ) {
+    return progress;
+  }
+
+  return {
+    ...progress,
+    missionProgress: {
+      ...progress.missionProgress,
+      [EGYPT_MISSION_ID]: {
+        ...existing,
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
+        currentStage: 'perform',
         egyptEntered: true,
         egyptMetNpcIds: nextMet,
         egyptPerformStarted: true,
@@ -6479,7 +7258,7 @@ export function startEgyptPerformMission(progress: LocalProgressV1): LocalProgre
 
 /**
  * Records/updates evidence for a sequential Stage 4 PERFORM mission and marks that
- * landmark station complete (+0 XP, +0 stamps; Chamber remains sealed until Phase 5F).
+ * landmark station complete (+0 XP, +0 stamps; Chamber remains sealed until Final Reflection submission).
  * Supports re-submission/CEFR switching in place without duplicating entries.
  */
 export function recordEgyptPerformMissionEvidence(
@@ -6490,7 +7269,8 @@ export function recordEgyptPerformMissionEvidence(
   if (!isEgyptPerformUnlocked(progress) || !VALID_EGYPT_LANDMARK_IDS.has(landmarkId)) {
     return progress;
   }
-  const existing = progress.missionProgress[EGYPT_MISSION_ID];
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  const existing = activeReplay ?? progress.missionProgress[EGYPT_MISSION_ID];
   if (!existing || !existing.egyptPerformStarted) {
     return progress;
   }
@@ -6546,13 +7326,36 @@ export function recordEgyptPerformMissionEvidence(
     ? currentExplored
     : [...currentExplored, landmarkId];
 
+  if (activeReplay) {
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: hasCanonicalEgyptPerformEntry(activeReplay) ? 'completed' : 'in_progress',
+            currentStage: 'perform',
+            egyptEntered: true,
+            egyptExploredPoiIds: nextExplored,
+            egyptPerformStarted: true,
+            egyptCompletedPerformIds: nextCompleted,
+            egyptPerformJournal: Array.from(portfolioMap.values()),
+          },
+        },
+      },
+    };
+  }
+
   return {
     ...progress,
     missionProgress: {
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
-        ...existing,
-        status: 'in_progress',
+        ...(existing as MissionProgressEntry),
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: 'perform',
         egyptEntered: true,
         egyptExploredPoiIds: nextExplored,
@@ -6572,6 +7375,7 @@ export function startEgyptPracticeMission(progress: LocalProgressV1): LocalProgr
   if (!isEgyptPracticeUnlocked(progress)) {
     return progress;
   }
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
   const existing = getEgyptEffectiveEntry(progress);
   const currentMet = getEgyptMetNpcIds(progress);
   const nextMet = currentMet.includes('npc_layla') ? currentMet : [...currentMet, 'npc_layla'];
@@ -6579,10 +7383,35 @@ export function startEgyptPracticeMission(progress: LocalProgressV1): LocalProgr
   if (
     existing.egyptPracticeStarted &&
     existing.egyptEntered &&
-    existing.status === 'in_progress' &&
+    (existing.status === 'in_progress' || existing.status === 'completed') &&
     currentMet.includes('npc_layla')
   ) {
     return progress;
+  }
+
+  if (activeReplay) {
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: activeReplay.status === 'completed' ? 'completed' : 'in_progress',
+            currentStage: resolveEgyptStage(existing),
+            egyptEntered: true,
+            egyptMetNpcIds: nextMet,
+            egyptPracticeStarted: true,
+            egyptCompletedPracticeChallengeIds:
+              activeReplay.egyptCompletedPracticeChallengeIds ?? [],
+            egyptCompletedPracticeIds: activeReplay.egyptCompletedPracticeIds ?? [],
+            egyptPracticeJournal: activeReplay.egyptPracticeJournal ?? [],
+          },
+        },
+      },
+    };
   }
 
   return {
@@ -6591,7 +7420,7 @@ export function startEgyptPracticeMission(progress: LocalProgressV1): LocalProgr
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
         ...existing,
-        status: 'in_progress',
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: resolveEgyptStage(existing),
         egyptEntered: true,
         egyptMetNpcIds: nextMet,
@@ -6613,7 +7442,8 @@ export function recordEgyptPracticeChallenge(
   record: EgyptPracticeEvidenceRecord,
 ): LocalProgressV1 {
   if (!isEgyptPracticeUnlocked(progress)) return progress;
-  const existing = progress.missionProgress[EGYPT_MISSION_ID];
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  const existing = activeReplay ?? progress.missionProgress[EGYPT_MISSION_ID];
   if (!existing || !existing.egyptPracticeStarted) return progress;
   if (!VALID_EGYPT_PRACTICE_CHALLENGE_ID_SET.has(record.challengeId)) return progress;
 
@@ -6645,14 +7475,36 @@ export function recordEgyptPracticeChallenge(
   }
   nextJournalMap.set(cleanRecord.id, cleanRecord);
 
+  if (activeReplay) {
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: activeReplay.status === 'completed' ? 'completed' : 'in_progress',
+            currentStage: resolveEgyptStage(activeReplay),
+            egyptEntered: true,
+            egyptPracticeStarted: true,
+            egyptCompletedPracticeChallengeIds: nextSolved,
+            egyptPracticeJournal: Array.from(nextJournalMap.values()),
+          },
+        },
+      },
+    };
+  }
+
   return {
     ...progress,
     missionProgress: {
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
-        ...existing,
-        status: 'in_progress',
-        currentStage: resolveEgyptStage(existing),
+        ...(existing as MissionProgressEntry),
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
+        currentStage: resolveEgyptStage(existing as MissionProgressEntry),
         egyptEntered: true,
         egyptPracticeStarted: true,
         egyptCompletedPracticeChallengeIds: nextSolved,
@@ -6667,7 +7519,7 @@ export function recordEgyptPracticeChallenge(
  * - Requires Egypt unlocked + PRACTICE unlocked + PRACTICE started + all 6 authored challenges for that station solved.
  * - Enforces sequential station order (1 -> 2 -> 3 -> 4 -> 5).
  * - Stations 1-4 award +0 XP and +0 stamps.
- * - Completing all 5 PRACTICE stations awards +50 XP ONCE and leaves Stage 4 PERFORM Coming Soon (+0 Egypt Stamps).
+ * - Completing all 5 PRACTICE stations awards +60 XP ONCE.
  */
 export function completeEgyptPracticeMission(
   progress: LocalProgressV1,
@@ -6676,7 +7528,8 @@ export function completeEgyptPracticeMission(
   if (!isEgyptPracticeUnlocked(progress) || !VALID_EGYPT_LANDMARK_IDS.has(landmarkId)) {
     return progress;
   }
-  const existing = progress.missionProgress[EGYPT_MISSION_ID];
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  const existing = activeReplay ?? progress.missionProgress[EGYPT_MISSION_ID];
   if (!existing || !existing.egyptPracticeStarted) {
     return progress;
   }
@@ -6720,6 +7573,61 @@ export function completeEgyptPracticeMission(
       ? [...existing.completedActivityIds, EGYPT_PRACTICE_ACTIVITY_ID]
       : existing.completedActivityIds;
 
+  if (activeReplay) {
+    const lifetime = progress.missionProgress[EGYPT_MISSION_ID] ?? {
+      status: 'not_started' as const,
+      currentStage: 'discover' as const,
+      completedActivityIds: [],
+    };
+    const lifetimeCanGrant =
+      allFiveDone &&
+      lifetime.completedActivityIds.includes(EGYPT_BUILD_ACTIVITY_ID) &&
+      !lifetime.completedActivityIds.includes(EGYPT_PRACTICE_ACTIVITY_ID);
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      rewards: {
+        ...progress.rewards,
+        xp: lifetimeCanGrant
+          ? progress.rewards.xp + EGYPT_PRACTICE_XP_REWARD
+          : progress.rewards.xp,
+      },
+      missionProgress: lifetimeCanGrant
+        ? {
+            ...progress.missionProgress,
+            [EGYPT_MISSION_ID]: {
+              ...lifetime,
+              status: lifetime.status === 'completed' ? 'completed' : 'in_progress',
+              currentStage: lifetime.completedActivityIds.includes(EGYPT_PERFORM_ACTIVITY_ID)
+                ? lifetime.currentStage
+                : 'perform',
+              completedActivityIds: [...lifetime.completedActivityIds, EGYPT_PRACTICE_ACTIVITY_ID],
+              egyptPracticeStarted: true,
+              egyptCompletedPracticeChallengeIds: existing.egyptCompletedPracticeChallengeIds,
+              egyptCompletedPracticeIds: nextCompleted,
+              egyptPracticeJournal: existing.egyptPracticeJournal,
+            },
+          }
+        : progress.missionProgress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: activeReplay.status === 'completed' ? 'completed' : 'in_progress',
+            currentStage: allFiveDone || alreadyRewarded ? 'perform' : 'practice',
+            completedActivityIds: nextCompletedActivityIds,
+            egyptEntered: true,
+            egyptExploredPoiIds: nextExplored,
+            egyptPracticeStarted: true,
+            egyptCompletedPracticeIds: nextCompleted,
+          },
+        },
+      },
+    };
+  }
+
   const grantXp = allFiveDone && !alreadyRewarded ? EGYPT_PRACTICE_XP_REWARD : 0;
 
   return {
@@ -6731,8 +7639,8 @@ export function completeEgyptPracticeMission(
     missionProgress: {
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
-        ...existing,
-        status: 'in_progress',
+        ...(existing as MissionProgressEntry),
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: allFiveDone || alreadyRewarded ? 'perform' : 'practice',
         completedActivityIds: nextCompletedActivityIds,
         egyptEntered: true,
@@ -6752,6 +7660,7 @@ export function startEgyptBuildMission(progress: LocalProgressV1): LocalProgress
   if (!isEgyptBuildUnlocked(progress)) {
     return progress;
   }
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
   const existing = getEgyptEffectiveEntry(progress);
   const currentMet = getEgyptMetNpcIds(progress);
   const nextMet = currentMet.includes('npc_layla') ? currentMet : [...currentMet, 'npc_layla'];
@@ -6759,10 +7668,34 @@ export function startEgyptBuildMission(progress: LocalProgressV1): LocalProgress
   if (
     existing.egyptBuildStarted &&
     existing.egyptEntered &&
-    existing.status === 'in_progress' &&
+    (existing.status === 'in_progress' || existing.status === 'completed') &&
     currentMet.includes('npc_layla')
   ) {
     return progress;
+  }
+
+  if (activeReplay) {
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: activeReplay.status === 'completed' ? 'completed' : 'in_progress',
+            currentStage: resolveEgyptStage(existing),
+            egyptEntered: true,
+            egyptMetNpcIds: nextMet,
+            egyptBuildStarted: true,
+            egyptCompletedBuildChallengeIds: activeReplay.egyptCompletedBuildChallengeIds ?? [],
+            egyptCompletedBuildIds: activeReplay.egyptCompletedBuildIds ?? [],
+            egyptBuildJournal: activeReplay.egyptBuildJournal ?? [],
+          },
+        },
+      },
+    };
   }
 
   return {
@@ -6771,7 +7704,7 @@ export function startEgyptBuildMission(progress: LocalProgressV1): LocalProgress
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
         ...existing,
-        status: 'in_progress',
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: resolveEgyptStage(existing),
         egyptEntered: true,
         egyptMetNpcIds: nextMet,
@@ -6793,7 +7726,8 @@ export function recordEgyptBuildChallenge(
   record: EgyptInstructionJournalRecord,
 ): LocalProgressV1 {
   if (!isEgyptBuildUnlocked(progress)) return progress;
-  const existing = progress.missionProgress[EGYPT_MISSION_ID];
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  const existing = activeReplay ?? progress.missionProgress[EGYPT_MISSION_ID];
   if (!existing || !existing.egyptBuildStarted) return progress;
   if (!VALID_EGYPT_BUILD_CHALLENGE_ID_SET.has(record.challengeId)) return progress;
 
@@ -6825,14 +7759,36 @@ export function recordEgyptBuildChallenge(
   }
   nextJournalMap.set(cleanRecord.id, cleanRecord);
 
+  if (activeReplay) {
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: activeReplay.status === 'completed' ? 'completed' : 'in_progress',
+            currentStage: resolveEgyptStage(activeReplay),
+            egyptEntered: true,
+            egyptBuildStarted: true,
+            egyptCompletedBuildChallengeIds: nextSolved,
+            egyptBuildJournal: Array.from(nextJournalMap.values()),
+          },
+        },
+      },
+    };
+  }
+
   return {
     ...progress,
     missionProgress: {
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
-        ...existing,
-        status: 'in_progress',
-        currentStage: resolveEgyptStage(existing),
+        ...(existing as MissionProgressEntry),
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
+        currentStage: resolveEgyptStage(existing as MissionProgressEntry),
         egyptEntered: true,
         egyptBuildStarted: true,
         egyptCompletedBuildChallengeIds: nextSolved,
@@ -6847,7 +7803,7 @@ export function recordEgyptBuildChallenge(
  * - Requires Egypt unlocked + BUILD unlocked + BUILD started + all 6 authored challenges for that station solved.
  * - Enforces sequential station order (1 -> 2 -> 3 -> 4 -> 5).
  * - Stations 1-4 award +0 XP and +0 stamps.
- * - Completing all 5 BUILD stations awards +50 XP ONCE and unlocks Stage 3 PRACTICE preview (coming soon).
+ * - Completing all 5 BUILD stations awards +50 XP ONCE.
  */
 export function completeEgyptBuildMission(
   progress: LocalProgressV1,
@@ -6856,7 +7812,8 @@ export function completeEgyptBuildMission(
   if (!isEgyptBuildUnlocked(progress) || !VALID_EGYPT_LANDMARK_IDS.has(landmarkId)) {
     return progress;
   }
-  const existing = progress.missionProgress[EGYPT_MISSION_ID];
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  const existing = activeReplay ?? progress.missionProgress[EGYPT_MISSION_ID];
   if (!existing || !existing.egyptBuildStarted) {
     return progress;
   }
@@ -6900,6 +7857,59 @@ export function completeEgyptBuildMission(
       ? [...existing.completedActivityIds, EGYPT_BUILD_ACTIVITY_ID]
       : existing.completedActivityIds;
 
+  if (activeReplay) {
+    const lifetime = progress.missionProgress[EGYPT_MISSION_ID] ?? {
+      status: 'not_started' as const,
+      currentStage: 'discover' as const,
+      completedActivityIds: [],
+    };
+    const lifetimeCanGrant =
+      allFiveDone &&
+      lifetime.completedActivityIds.includes(EGYPT_DISCOVERY_ACTIVITY_ID) &&
+      !lifetime.completedActivityIds.includes(EGYPT_BUILD_ACTIVITY_ID);
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      rewards: {
+        ...progress.rewards,
+        xp: lifetimeCanGrant ? progress.rewards.xp + EGYPT_BUILD_XP_REWARD : progress.rewards.xp,
+      },
+      missionProgress: lifetimeCanGrant
+        ? {
+            ...progress.missionProgress,
+            [EGYPT_MISSION_ID]: {
+              ...lifetime,
+              status: lifetime.status === 'completed' ? 'completed' : 'in_progress',
+              currentStage: lifetime.completedActivityIds.includes(EGYPT_PRACTICE_ACTIVITY_ID)
+                ? lifetime.currentStage
+                : 'practice',
+              completedActivityIds: [...lifetime.completedActivityIds, EGYPT_BUILD_ACTIVITY_ID],
+              egyptBuildStarted: true,
+              egyptCompletedBuildChallengeIds: existing.egyptCompletedBuildChallengeIds,
+              egyptCompletedBuildIds: nextCompleted,
+              egyptBuildJournal: existing.egyptBuildJournal,
+            },
+          }
+        : progress.missionProgress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: activeReplay.status === 'completed' ? 'completed' : 'in_progress',
+            currentStage: allFiveDone || alreadyRewarded ? 'practice' : 'build',
+            completedActivityIds: nextCompletedActivityIds,
+            egyptEntered: true,
+            egyptExploredPoiIds: nextExplored,
+            egyptBuildStarted: true,
+            egyptCompletedBuildIds: nextCompleted,
+          },
+        },
+      },
+    };
+  }
+
   const grantXp = allFiveDone && !alreadyRewarded ? EGYPT_BUILD_XP_REWARD : 0;
 
   return {
@@ -6911,8 +7921,8 @@ export function completeEgyptBuildMission(
     missionProgress: {
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
-        ...existing,
-        status: 'in_progress',
+        ...(existing as MissionProgressEntry),
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: allFiveDone || alreadyRewarded ? 'practice' : 'build',
         completedActivityIds: nextCompletedActivityIds,
         egyptEntered: true,
@@ -6931,6 +7941,7 @@ export function startEgyptDiscoveryMission(progress: LocalProgressV1): LocalProg
   if (!isEgyptUnlocked(progress)) {
     return progress;
   }
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
   const existing = getEgyptEffectiveEntry(progress);
   const currentMet = getEgyptMetNpcIds(progress);
   const nextMet = currentMet.includes('npc_layla') ? currentMet : [...currentMet, 'npc_layla'];
@@ -6939,11 +7950,34 @@ export function startEgyptDiscoveryMission(progress: LocalProgressV1): LocalProg
   if (
     existing.egyptDiscoverStarted &&
     existing.egyptEntered &&
-    existing.status === 'in_progress' &&
+    (existing.status === 'in_progress' || existing.status === 'completed') &&
     currentMet.includes('npc_layla') &&
     !unlockedNeedsSync
   ) {
     return progress;
+  }
+
+  if (activeReplay) {
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: activeReplay.status === 'completed' ? 'completed' : 'in_progress',
+            currentStage: resolveEgyptStage(existing),
+            completedActivityIds: activeReplay.completedActivityIds,
+            egyptEntered: true,
+            egyptMetNpcIds: nextMet,
+            egyptDiscoverStarted: true,
+            egyptCompletedDiscoverIds: activeReplay.egyptCompletedDiscoverIds ?? [],
+          },
+        },
+      },
+    };
   }
 
   return {
@@ -6955,7 +7989,7 @@ export function startEgyptDiscoveryMission(progress: LocalProgressV1): LocalProg
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
         ...existing,
-        status: 'in_progress',
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: resolveEgyptStage(existing),
         completedActivityIds: existing.completedActivityIds,
         egyptEntered: true,
@@ -6972,7 +8006,7 @@ export function startEgyptDiscoveryMission(progress: LocalProgressV1): LocalProg
  * - Requires Egypt unlocked + DISCOVER started.
  * - Enforces sequential completion order (1 -> 2 -> 3 -> 4 -> 5).
  * - Individual mini-games award +0 XP and +0 stamps.
- * - Completing all 5 games awards +50 XP ONCE and marks Stage 1 DISCOVER completed without awarding any Stamp.
+ * - Completing all 5 games awards +40 XP ONCE and marks Stage 1 DISCOVER completed without awarding any Stamp.
  */
 export function completeEgyptDiscoveryMission(
   progress: LocalProgressV1,
@@ -6981,7 +8015,8 @@ export function completeEgyptDiscoveryMission(
   if (!isEgyptUnlocked(progress) || !VALID_EGYPT_LANDMARK_IDS.has(landmarkId)) {
     return progress;
   }
-  const existing = progress.missionProgress[EGYPT_MISSION_ID];
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  const existing = activeReplay ?? progress.missionProgress[EGYPT_MISSION_ID];
   if (!existing || !existing.egyptDiscoverStarted) {
     return progress;
   }
@@ -7011,6 +8046,58 @@ export function completeEgyptDiscoveryMission(
       ? [...existing.completedActivityIds, EGYPT_DISCOVERY_ACTIVITY_ID]
       : existing.completedActivityIds;
 
+  if (activeReplay) {
+    const lifetime = progress.missionProgress[EGYPT_MISSION_ID] ?? {
+      status: 'not_started' as const,
+      currentStage: 'discover' as const,
+      completedActivityIds: [],
+    };
+    const lifetimeCanGrant =
+      allFiveDone && !lifetime.completedActivityIds.includes(EGYPT_DISCOVERY_ACTIVITY_ID);
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      rewards: {
+        ...progress.rewards,
+        xp: lifetimeCanGrant
+          ? progress.rewards.xp + EGYPT_DISCOVERY_XP_REWARD
+          : progress.rewards.xp,
+      },
+      missionProgress: lifetimeCanGrant
+        ? {
+            ...progress.missionProgress,
+            [EGYPT_MISSION_ID]: {
+              ...lifetime,
+              status: lifetime.status === 'completed' ? 'completed' : 'in_progress',
+              currentStage: lifetime.completedActivityIds.includes(EGYPT_BUILD_ACTIVITY_ID)
+                ? lifetime.currentStage
+                : 'build',
+              completedActivityIds: [...lifetime.completedActivityIds, EGYPT_DISCOVERY_ACTIVITY_ID],
+              egyptDiscoverStarted: true,
+              egyptCompletedDiscoverIds: nextCompleted,
+              egyptExploredPoiIds: nextExplored,
+            },
+          }
+        : progress.missionProgress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            status: activeReplay.status === 'completed' ? 'completed' : 'in_progress',
+            currentStage: allFiveDone || alreadyRewarded ? 'build' : 'discover',
+            completedActivityIds: nextCompletedActivityIds,
+            egyptEntered: true,
+            egyptExploredPoiIds: nextExplored,
+            egyptDiscoverStarted: true,
+            egyptCompletedDiscoverIds: nextCompleted,
+          },
+        },
+      },
+    };
+  }
+
   const grantXp = allFiveDone && !alreadyRewarded ? EGYPT_DISCOVERY_XP_REWARD : 0;
 
   return {
@@ -7022,8 +8109,8 @@ export function completeEgyptDiscoveryMission(
     missionProgress: {
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
-        ...existing,
-        status: 'in_progress',
+        ...(existing as MissionProgressEntry),
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: allFiveDone || alreadyRewarded ? 'build' : 'discover',
         completedActivityIds: nextCompletedActivityIds,
         egyptEntered: true,
@@ -7042,9 +8129,31 @@ export function markEgyptEntered(progress: LocalProgressV1): LocalProgressV1 {
   if (!isEgyptUnlocked(progress)) {
     return progress;
   }
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
+  if (activeReplay) {
+    if (activeReplay.egyptEntered) return progress;
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            egyptEntered: true,
+          },
+        },
+      },
+    };
+  }
   const existing = getEgyptEffectiveEntry(progress);
   const unlockedNeedsSync = !progress.unlockedCountryIds.includes('egypt');
-  if (existing.egyptEntered && existing.status === 'in_progress' && !unlockedNeedsSync) {
+  if (
+    existing.egyptEntered &&
+    (existing.status === 'in_progress' || existing.status === 'completed') &&
+    !unlockedNeedsSync
+  ) {
     return progress;
   }
   return {
@@ -7056,7 +8165,7 @@ export function markEgyptEntered(progress: LocalProgressV1): LocalProgressV1 {
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
         ...existing,
-        status: 'in_progress',
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: resolveEgyptStage(existing),
         completedActivityIds: existing.completedActivityIds,
         egyptEntered: true,
@@ -7072,19 +8181,41 @@ export function markEgyptNpcMet(progress: LocalProgressV1, npcId: EgyptNpcId): L
   if (!isEgyptUnlocked(progress) || !VALID_EGYPT_NPC_IDS.has(npcId)) {
     return progress;
   }
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
   const existing = getEgyptEffectiveEntry(progress);
   const currentMet = getEgyptMetNpcIds(progress);
-  if (currentMet.includes(npcId) && existing.egyptEntered && existing.status === 'in_progress') {
+  if (
+    currentMet.includes(npcId) &&
+    existing.egyptEntered &&
+    (existing.status === 'in_progress' || existing.status === 'completed')
+  ) {
     return progress;
   }
   const nextMet = currentMet.includes(npcId) ? currentMet : [...currentMet, npcId];
+  if (activeReplay) {
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            egyptEntered: true,
+            egyptMetNpcIds: nextMet,
+          },
+        },
+      },
+    };
+  }
   return {
     ...progress,
     missionProgress: {
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
         ...existing,
-        status: 'in_progress',
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: resolveEgyptStage(existing),
         completedActivityIds: existing.completedActivityIds,
         egyptEntered: true,
@@ -7104,25 +8235,43 @@ export function markEgyptPoiExplored(
   if (!isEgyptUnlocked(progress) || !VALID_EGYPT_LANDMARK_IDS.has(landmarkId)) {
     return progress;
   }
+  const activeReplay = getActiveReplayAttempt(progress, 'egypt');
   const existing = getEgyptEffectiveEntry(progress);
   const currentExplored = getEgyptVisitedLandmarkIds(progress);
   if (
     currentExplored.includes(landmarkId) &&
     existing.egyptEntered &&
-    existing.status === 'in_progress'
+    (existing.status === 'in_progress' || existing.status === 'completed')
   ) {
     return progress;
   }
   const nextExplored = currentExplored.includes(landmarkId)
     ? currentExplored
     : [...currentExplored, landmarkId];
+  if (activeReplay) {
+    const replayState = getReplayState(progress);
+    return {
+      ...progress,
+      replayState: {
+        ...replayState,
+        activeAttempts: {
+          ...replayState.activeAttempts,
+          egypt: {
+            ...activeReplay,
+            egyptEntered: true,
+            egyptExploredPoiIds: nextExplored,
+          },
+        },
+      },
+    };
+  }
   return {
     ...progress,
     missionProgress: {
       ...progress.missionProgress,
       [EGYPT_MISSION_ID]: {
         ...existing,
-        status: 'in_progress',
+        status: existing.status === 'completed' ? 'completed' : 'in_progress',
         currentStage: resolveEgyptStage(existing),
         completedActivityIds: existing.completedActivityIds,
         egyptEntered: true,
@@ -7137,6 +8286,8 @@ export {
   EGYPT_PASSPORT_STAMP_ID,
   EGYPT_PRACTICE_ACTIVITY_ID,
   EGYPT_PRACTICE_XP_REWARD,
+  EGYPT_PERFORM_XP_REWARD,
+  TOTAL_EGYPT_MISSION_XP,
 };
 
 export function getAustraliaPerformChallengeStatus(

@@ -2,9 +2,11 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
+  BookOpen,
   Coins,
   FileJson,
   Gem,
+  Globe2,
   Lock,
   Palette,
   Settings,
@@ -21,8 +23,13 @@ import { GAME_COPY } from '../../data/i18n';
 import {
   AUSTRALIA_MISSION_ID,
   AUSTRALIA_PASSPORT_STAMP_ID,
+  EGYPT_MISSION_ID,
+  EGYPT_PASSPORT_STAMP_ID,
   isAustraliaMissionCompleted,
   isAustraliaPerformAwaitingReflection,
+  isEgyptMissionCompleted,
+  isEgyptPerformAwaitingReflection,
+  isGlobalAdventureCompleted,
   JAIPUR_MISSION_ID,
   KENYA_MISSION_ID,
   KENYA_PASSPORT_STAMP_ID,
@@ -34,6 +41,7 @@ import { IndiaJaipurStampSVG } from '../common/IndiaJaipurStampSVG';
 import { KenyaWildSpeakStampSVG } from '../common/KenyaWildSpeakStampSVG';
 import { ScotlandHighlandsStampSVG } from '../common/ScotlandHighlandsStampSVG';
 import { AustraliaSydneyStampSVG } from '../common/AustraliaSydneyStampSVG';
+import { EgyptExpeditionStampSVG } from '../common/EgyptExpeditionStampSVG';
 
 interface PassportModalScreenProps {
   language: AppLanguage;
@@ -47,6 +55,8 @@ interface PassportModalScreenProps {
   onEditAvatar: () => void;
   onOpenSettings: () => void;
   onOpenPortableProgress?: () => void;
+  onOpenLearningLegacy?: () => void;
+  onOpenGlobalFinale?: () => void;
 }
 
 export function PassportModalScreen({
@@ -61,8 +71,11 @@ export function PassportModalScreen({
   onEditAvatar,
   onOpenSettings,
   onOpenPortableProgress,
+  onOpenLearningLegacy,
+  onOpenGlobalFinale,
 }: PassportModalScreenProps) {
   const copy = GAME_COPY[language];
+  const globalCompleted = isGlobalAdventureCompleted(progress);
 
   return (
     <div className="min-h-screen w-full bg-[var(--vv-canvas)] text-[var(--vv-ink)] p-4 sm:p-6">
@@ -182,7 +195,35 @@ export function PassportModalScreen({
             </div>
           </div>
 
-          <p className="mt-4 text-xs text-[var(--vv-ink-secondary)]">{copy.passportEmptyHint}</p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-[var(--vv-ink-secondary)]">{copy.passportEmptyHint}</p>
+            {!isIntroMode && (
+              <div className="flex flex-wrap items-center gap-2">
+                {onOpenLearningLegacy && (
+                  <button
+                    type="button"
+                    data-testid="passport-open-legacy-button"
+                    onClick={onOpenLearningLegacy}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--vv-border-strong)] bg-[var(--vv-surface-inset)] px-3 py-1.5 text-xs font-extrabold text-[var(--vv-ink)] hover:bg-[var(--vv-surface-hover)] cursor-pointer"
+                  >
+                    <BookOpen className="h-3.5 w-3.5 text-[var(--vv-teal-ink)]" aria-hidden="true" />
+                    <span>{copy.learningLegacyTitle}</span>
+                  </button>
+                )}
+                {globalCompleted && onOpenGlobalFinale && (
+                  <button
+                    type="button"
+                    data-testid="passport-open-global-finale-button"
+                    onClick={onOpenGlobalFinale}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-3.5 py-1.5 text-xs font-extrabold text-[#131E31] shadow-sm hover:brightness-105 cursor-pointer"
+                  >
+                    <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{copy.globalFinaleTitle}</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* 5 Stamp Slots */}
           <div className="mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
@@ -196,16 +237,21 @@ export function PassportModalScreen({
                       ? SCOTLAND_PASSPORT_STAMP_ID
                       : country.id === 'australia'
                         ? AUSTRALIA_PASSPORT_STAMP_ID
-                        : 'stamp_egypt_expedition';
+                        : EGYPT_PASSPORT_STAMP_ID;
               const earned =
                 country.id === 'australia'
                   ? isAustraliaMissionCompleted(progress) &&
                     progress.rewards.stamps.includes(AUSTRALIA_PASSPORT_STAMP_ID)
-                  : progress.rewards.stamps.includes(stampId) ||
-                    (country.id === 'kenya' &&
-                      progress.rewards.stamps.includes('stamp_kenya_safari'));
+                  : country.id === 'egypt'
+                    ? isEgyptMissionCompleted(progress) &&
+                      progress.rewards.stamps.includes(EGYPT_PASSPORT_STAMP_ID)
+                    : progress.rewards.stamps.includes(stampId) ||
+                      (country.id === 'kenya' &&
+                        progress.rewards.stamps.includes('stamp_kenya_safari'));
               const australiaReflectionPending =
                 country.id === 'australia' && !earned && isAustraliaPerformAwaitingReflection(progress);
+              const egyptReflectionPending =
+                country.id === 'egypt' && !earned && isEgyptPerformAwaitingReflection(progress);
               return (
                 <div
                   key={country.id}
@@ -259,6 +305,14 @@ export function PassportModalScreen({
                         completedAt={progress.missionProgress[AUSTRALIA_MISSION_ID]?.completedAt}
                         sizeClass="h-24 w-24"
                       />
+                    ) : country.id === 'egypt' && earned ? (
+                      <EgyptExpeditionStampSVG
+                        language={language}
+                        appearance={appearance}
+                        earned={true}
+                        completedAt={progress.missionProgress[EGYPT_MISSION_ID]?.completedAt}
+                        sizeClass="h-24 w-24"
+                      />
                     ) : (
                       <div
                         className={`flex h-12 w-12 items-center justify-center rounded-full border-2 ${
@@ -279,7 +333,9 @@ export function PassportModalScreen({
                     <p className="mt-0.5 text-[11px] text-[var(--vv-ink-muted)]">
                       {australiaReflectionPending
                         ? copy.australiaPerformReflectionGateNotice
-                        : country.stampTitle[language]}
+                        : egyptReflectionPending
+                          ? copy.egyptReflectionResumeBanner
+                          : country.stampTitle[language]}
                     </p>
                   </div>
                 </div>

@@ -72,6 +72,7 @@ import {
   completeAustraliaPracticeMission,
   completeEgyptBuildMission,
   completeEgyptDiscoveryMission,
+  completeEgyptPerformAndReflection,
   completeEgyptPracticeMission,
   completeJaipurFinalShowcase,
   completeJaipurSentenceTrain,
@@ -93,6 +94,7 @@ import {
   recordEgyptBuildChallenge,
   recordEgyptPerformMissionEvidence,
   recordEgyptPracticeChallenge,
+  saveEgyptPerformReflectionDraft,
   startAustraliaBuildMission,
   startAustraliaDiscoveryMission,
   startAustraliaPerformMission,
@@ -111,7 +113,10 @@ import {
   startScotlandPerformMission,
   startScotlandPracticeMission,
 } from '../utils/progressStorage';
-import type { EgyptPerformEvidenceRecord } from '../types/game';
+import type {
+  EgyptPerformEvidenceRecord,
+  EgyptPerformReflectionState,
+} from '../types/game';
 
 export type QaPresetId =
   | 'new_explorer'
@@ -120,6 +125,8 @@ export type QaPresetId =
   | 'egypt_build_completed'
   | 'egypt_practice_completed'
   | 'egypt_perform_awaiting_reflection'
+  | 'egypt_perform_reflection_draft'
+  | 'egypt_completed_global_finale'
   | 'selected_activity';
 
 export interface QaLaunchTarget {
@@ -215,6 +222,32 @@ export const QA_PRESET_CATALOG: QaPresetMeta[] = [
     },
     expectedXp: 1150,
     expectedStamps: 4,
+  },
+  {
+    id: 'egypt_perform_reflection_draft',
+    label: {
+      en: 'G · Egypt Reflection Draft Saved',
+      th: 'G · บันทึกแบบร่างสะท้อนคิดอียิปต์แล้ว',
+    },
+    summary: {
+      en: '1,150 XP · 4 Stamps · 5/5 PERFORM evidence + saved reflection draft · Chamber still sealed',
+      th: '1,150 XP · 4 ตราประทับ · หลักฐาน PERFORM ครบ + แบบร่างสะท้อนคิด · ประตูโถงยังปิดผนึก',
+    },
+    expectedXp: 1150,
+    expectedStamps: 4,
+  },
+  {
+    id: 'egypt_completed_global_finale',
+    label: {
+      en: 'H · Egypt Completed & Global Finale (5/5)',
+      th: 'H · พิชิตอียิปต์และจบบทสรุปโลกครบ 5/5',
+    },
+    summary: {
+      en: '1,250 XP · 5/5 Stamps · Chamber unsealed · Global Explorer Graduation & Learning Legacy ready',
+      th: '1,250 XP · 5/5 ตราประทับ · เปิดผนึกโถงแห่งปัญญาแล้ว · พร้อมหน้าสรุปนักสำรวจโลกและบันทึกพัฒนาการ',
+    },
+    expectedXp: 1250,
+    expectedStamps: 5,
   },
 ];
 
@@ -710,6 +743,71 @@ function advanceEgyptPerformStation(
   );
 }
 
+function buildCanonicalEgyptReflectionDraft(
+  cefrMode: 'a2' | 'b1' = 'a2',
+): EgyptPerformReflectionState {
+  return {
+    cefrMode,
+    status: 'draft',
+    sections: {
+      knowledge_learning:
+        cefrMode === 'b1'
+          ? 'In Egypt I learned how real field evidence and preservation rules protect sandstone carvings.'
+          : 'In Egypt, I learned that we must check real evidence and protect sandstone carvings.',
+      english_growth:
+        cefrMode === 'b1'
+          ? 'I practiced organizing route directions and reasoned safety explanations with sequencers.'
+          : 'Now I can give clear steps using first, next, and because.',
+      challenges_difficulties:
+        'Ordering longer multi-step sentences felt tricky at first, though checking the journal helped.',
+      learning_strategies: '',
+      future_goals: '',
+    },
+    selectedStrengths: ['step_by_step_instructions', 'listening_checking'],
+    selectedGoalIds: ['goal_speak_steadily'],
+    selfAssessmentRating: 4,
+    speechRehearsalUsed: false,
+    reviewedPortfolioEvidence: true,
+    updatedAt: QA_SYNTHETIC_TIMESTAMP,
+  };
+}
+
+function buildCanonicalEgyptSubmittedReflection(
+  cefrMode: 'a2' | 'b1' = 'a2',
+): EgyptPerformReflectionState {
+  return {
+    cefrMode,
+    status: 'submitted',
+    sections: {
+      knowledge_learning:
+        cefrMode === 'b1'
+          ? 'In Egypt I learned to distinguish historical evidence from legend and why protecting temple carvings matters.'
+          : 'In Egypt, I learned that real historical evidence is different from legend and carvings must stay safe.',
+      english_growth:
+        cefrMode === 'b1'
+          ? 'Across Discover, Build, Practice, and Perform my instructions became clearer with sequencers and because clauses.'
+          : 'Now I can give directions and polite rules using first, next, then, and because.',
+      challenges_difficulties:
+        'Remembering exact route steps and connecting longer explanations was hard at first, and speaking quickly still takes effort.',
+      learning_strategies:
+        'Re-listening to English prompts, checking the Instruction Journal, and revising drafts helped me recover from mistakes.',
+      future_goals:
+        'Next, I want to practice speaking short step-by-step instructions calmly and reviewing my writing before sharing.',
+    },
+    selectedStrengths: [
+      'step_by_step_instructions',
+      'route_directions',
+      'cultural_respect',
+    ],
+    selectedGoalIds: ['goal_speak_steadily', 'goal_connect_reasons'],
+    selfAssessmentRating: 4,
+    speechRehearsalUsed: false,
+    reviewedPortfolioEvidence: true,
+    updatedAt: QA_SYNTHETIC_TIMESTAMP,
+    submittedAt: QA_SYNTHETIC_TIMESTAMP,
+  };
+}
+
 /**
  * Generates validated canonical synthetic LocalProgressV1 presets.
  * Always passes output through migrateAndValidateProgress so no invalid shortcuts exist.
@@ -839,6 +937,71 @@ export function buildQaPresetProgress(
     for (const landmarkId of EGYPT_PERFORM_MISSION_ORDER) {
       p = advanceEgyptPerformStation(p, landmarkId, cefr);
     }
+    return finalize({
+      ...p,
+      selectedCountryId: 'egypt',
+      currentRoute: 'country-lobby',
+    });
+  }
+
+  if (presetId === 'egypt_perform_reflection_draft') {
+    let p = buildQaAvatarBase('QA Explorer (EGY Reflection Draft)');
+    p = advanceIndiaComplete(p);
+    p = advanceKenyaComplete(p);
+    p = advanceScotlandComplete(p);
+    p = advanceAustraliaComplete(p, cefr);
+    p = markEgyptEntered(p);
+    p = startEgyptDiscoveryMission(p);
+    for (const id of EGYPT_DISCOVER_MISSION_ORDER) {
+      p = completeEgyptDiscoveryMission(p, id);
+    }
+    p = startEgyptBuildMission(p);
+    for (const landmarkId of EGYPT_BUILD_MISSION_ORDER) {
+      p = advanceEgyptBuildStation(p, landmarkId, cefr);
+    }
+    p = startEgyptPracticeMission(p);
+    for (const landmarkId of EGYPT_PRACTICE_MISSION_ORDER) {
+      p = advanceEgyptPracticeStation(p, landmarkId, cefr);
+    }
+    p = startEgyptPerformMission(p);
+    for (const landmarkId of EGYPT_PERFORM_MISSION_ORDER) {
+      p = advanceEgyptPerformStation(p, landmarkId, cefr);
+    }
+    p = saveEgyptPerformReflectionDraft(p, buildCanonicalEgyptReflectionDraft(cefr));
+    return finalize({
+      ...p,
+      selectedCountryId: 'egypt',
+      currentRoute: 'country-lobby',
+    });
+  }
+
+  if (presetId === 'egypt_completed_global_finale') {
+    let p = buildQaAvatarBase('QA Explorer (Global Finale)');
+    p = advanceIndiaComplete(p);
+    p = advanceKenyaComplete(p);
+    p = advanceScotlandComplete(p);
+    p = advanceAustraliaComplete(p, cefr);
+    p = markEgyptEntered(p);
+    p = startEgyptDiscoveryMission(p);
+    for (const id of EGYPT_DISCOVER_MISSION_ORDER) {
+      p = completeEgyptDiscoveryMission(p, id);
+    }
+    p = startEgyptBuildMission(p);
+    for (const landmarkId of EGYPT_BUILD_MISSION_ORDER) {
+      p = advanceEgyptBuildStation(p, landmarkId, cefr);
+    }
+    p = startEgyptPracticeMission(p);
+    for (const landmarkId of EGYPT_PRACTICE_MISSION_ORDER) {
+      p = advanceEgyptPracticeStation(p, landmarkId, cefr);
+    }
+    p = startEgyptPerformMission(p);
+    for (const landmarkId of EGYPT_PERFORM_MISSION_ORDER) {
+      p = advanceEgyptPerformStation(p, landmarkId, cefr);
+    }
+    p = completeEgyptPerformAndReflection(
+      p,
+      buildCanonicalEgyptSubmittedReflection(cefr),
+    );
     return finalize({
       ...p,
       selectedCountryId: 'egypt',
@@ -1105,7 +1268,27 @@ export function buildSelectedActivityQaProgress(
   }
   p = startEgyptPerformMission(p);
   if (stageId === 'perform') {
-    if (activityId === 'portfolio') {
+    if (
+      activityId === 'chamber' ||
+      activityId === 'global_finale' ||
+      activityId === 'learning_legacy'
+    ) {
+      for (const id of EGYPT_PERFORM_MISSION_ORDER) {
+        p = advanceEgyptPerformStation(p, id, cefrMode);
+      }
+      p = completeEgyptPerformAndReflection(
+        p,
+        buildCanonicalEgyptSubmittedReflection(cefrMode),
+      );
+    } else if (activityId === 'reflection') {
+      for (const id of EGYPT_PERFORM_MISSION_ORDER) {
+        p = advanceEgyptPerformStation(p, id, cefrMode);
+      }
+      p = saveEgyptPerformReflectionDraft(
+        p,
+        buildCanonicalEgyptReflectionDraft(cefrMode),
+      );
+    } else if (activityId === 'portfolio') {
       for (const id of EGYPT_PERFORM_MISSION_ORDER) {
         p = advanceEgyptPerformStation(p, id, cefrMode);
       }

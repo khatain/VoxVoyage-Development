@@ -1,9 +1,11 @@
 import {
   ArrowRight,
+  BookOpen,
   CheckCircle2,
   Clock3,
   Coins,
   Gem,
+  Globe2,
   Home,
   Lock,
   Moon,
@@ -38,7 +40,10 @@ import {
   isAustraliaMissionCompleted,
   isAustraliaPerformAwaitingReflection,
   isAustraliaUnlocked,
+  isEgyptMissionCompleted,
+  isEgyptPerformAwaitingReflection,
   isEgyptUnlocked,
+  isGlobalAdventureCompleted,
   isJaipurMissionCompleted,
   isKenyaMissionCompleted,
   isScotlandMissionCompleted,
@@ -59,6 +64,9 @@ interface WorldMapOverlayProps {
   onSelectCountry: (id: CountryId) => void;
   onEnterWorld: () => void;
   onEnterAustraliaReflection?: () => void;
+  onEnterEgyptReflection?: () => void;
+  onOpenGlobalFinale?: () => void;
+  onOpenLearningLegacy?: () => void;
   onRequestReplayCountry: (id: CountryId) => void;
   onRequestRestartAttempt: (id: CountryId) => void;
   onOpenPassport: () => void;
@@ -86,6 +94,9 @@ export function WorldMapOverlay({
   onSelectCountry,
   onEnterWorld,
   onEnterAustraliaReflection,
+  onEnterEgyptReflection,
+  onOpenGlobalFinale,
+  onOpenLearningLegacy,
   onRequestReplayCountry,
   onRequestRestartAttempt,
   onOpenPassport,
@@ -104,6 +115,8 @@ export function WorldMapOverlay({
   const australiaAwaitingReflection = isAustraliaPerformAwaitingReflection(progress);
   const egyptUnlocked = isEgyptUnlocked(progress);
   const egyptEntry = getEgyptEffectiveEntry(progress);
+  const egyptAwaitingReflection = isEgyptPerformAwaitingReflection(progress);
+  const globalCompleted = isGlobalAdventureCompleted(progress);
 
   const getCountryStatus = (id: CountryId): WorldDestinationStatus => {
     if (id === 'india') {
@@ -150,6 +163,7 @@ export function WorldMapOverlay({
     }
     if (id === 'egypt') {
       if (!egyptUnlocked) return 'locked';
+      if (isEgyptMissionCompleted(progress)) return 'completed';
       const hasStartedEgypt = Boolean(
         egyptEntry?.status === 'in_progress' ||
           egyptEntry?.egyptEntered ||
@@ -297,6 +311,30 @@ export function WorldMapOverlay({
               {progress.rewards.stamps.length}/5
             </span>
           </button>
+
+          {onOpenLearningLegacy && (
+            <button
+              type="button"
+              data-testid="world-map-legacy-button"
+              onClick={onOpenLearningLegacy}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold shadow-sm transition-colors cursor-pointer ${hudChipClass} hover:border-[#24B8B0]`}
+            >
+              <BookOpen className="h-3.5 w-3.5 text-[#24B8B0]" aria-hidden="true" />
+              <span className="hidden sm:inline">{copy.learningLegacyTitle}</span>
+            </button>
+          )}
+
+          {globalCompleted && onOpenGlobalFinale && (
+            <button
+              type="button"
+              data-testid="world-map-global-finale-button"
+              onClick={onOpenGlobalFinale}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-3 py-2 text-xs font-extrabold text-[#131E31] shadow-md hover:brightness-105 cursor-pointer"
+            >
+              <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{copy.globalFinaleTitle}</span>
+            </button>
+          )}
         </div>
 
         {/* Top-Right: Quick Day/Night, Music, Settings, Title */}
@@ -421,6 +459,19 @@ export function WorldMapOverlay({
                 )}
               {selectedCountry.id === 'egypt' &&
                 egyptUnlocked &&
+                egyptAwaitingReflection &&
+                selectedStatus === 'in_progress' && (
+                  <p
+                    className={`text-[11px] font-bold mt-0.5 ${
+                      isNight ? 'text-[#F2C66D]' : 'text-[#9A5B13]'
+                    }`}
+                  >
+                    {copy.egyptReflectionResumeBanner}
+                  </p>
+                )}
+              {selectedCountry.id === 'egypt' &&
+                egyptUnlocked &&
+                !egyptAwaitingReflection &&
                 (selectedStatus === 'available' || selectedStatus === 'in_progress') && (
                   <p
                     className={`text-[11px] font-medium mt-0.5 ${
@@ -489,6 +540,16 @@ export function WorldMapOverlay({
                   className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#F2C66D] px-5 py-2.5 font-display text-sm font-bold text-[#131E31] shadow-md hover:bg-[#f6d388] active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap"
                 >
                   <span>{copy.australiaPerformResumeReflectionButton}</span>
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              ) : selectedCountry.id === 'egypt' && egyptAwaitingReflection ? (
+                <button
+                  type="button"
+                  data-testid="world-map-resume-egypt-reflection-button"
+                  onClick={onEnterEgyptReflection ?? onEnterWorld}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#F2C66D] px-5 py-2.5 font-display text-sm font-bold text-[#131E31] shadow-md hover:bg-[#f6d388] active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap"
+                >
+                  <span>{copy.egyptReflectionResumeDraftCta}</span>
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               ) : (

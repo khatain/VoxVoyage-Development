@@ -285,6 +285,34 @@ export const QA_WORLD_CATALOG: QaCountryCatalogEntry[] = [
               th: 'แฟ้มผลงานด่านที่ 4 · Performance Portfolio',
             },
           },
+          {
+            id: 'reflection',
+            label: {
+              en: 'Final Self-Reflection Gate (Phase 5F)',
+              th: 'แบบสะท้อนคิดปิดภารกิจอียิปต์ (Phase 5F)',
+            },
+          },
+          {
+            id: 'chamber',
+            label: {
+              en: 'Chamber of Wisdom Unsealing Ceremony',
+              th: 'พิธีเปิดผนึกโถงแห่งปัญญา',
+            },
+          },
+          {
+            id: 'global_finale',
+            label: {
+              en: 'Global Explorer Finale (5/5 Stamps)',
+              th: 'บทสรุปนักสำรวจโลก (ครบ 5/5 ตราประทับ)',
+            },
+          },
+          {
+            id: 'learning_legacy',
+            label: {
+              en: 'My Learning Legacy Portfolio',
+              th: 'คลังการเรียนรู้และพัฒนาการของฉัน',
+            },
+          },
         ],
       },
     ],

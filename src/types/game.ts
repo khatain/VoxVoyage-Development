@@ -359,7 +359,40 @@ export interface MissionProgressEntry {
   egyptPerformStarted?: boolean;
   egyptCompletedPerformIds?: string[];
   egyptPerformJournal?: EgyptPerformEvidenceRecord[];
+  egyptPerformReflection?: EgyptPerformReflectionState;
+  egyptPerformCompleted?: boolean;
+  egyptChamberUnsealed?: boolean;
   completedAt?: string;
+}
+
+export type EgyptPerformReflectionSectionId =
+  | 'knowledge_learning'
+  | 'english_growth'
+  | 'challenges_difficulties'
+  | 'learning_strategies'
+  | 'future_goals';
+
+export type EgyptPerformReflectionStrengthId =
+  | 'step_by_step_instructions'
+  | 'route_directions'
+  | 'cultural_respect'
+  | 'listening_checking'
+  | 'revising_work'
+  | 'growing_step_by_step';
+
+export type EgyptPerformReflectionStatus = 'draft' | 'submitted';
+
+export interface EgyptPerformReflectionState {
+  cefrMode: 'a2' | 'b1';
+  status: EgyptPerformReflectionStatus;
+  sections: Record<EgyptPerformReflectionSectionId, string>;
+  selectedStrengths: EgyptPerformReflectionStrengthId[];
+  selectedGoalIds: string[];
+  selfAssessmentRating?: 1 | 2 | 3 | 4 | 5;
+  speechRehearsalUsed?: boolean;
+  reviewedPortfolioEvidence?: boolean;
+  updatedAt: string;
+  submittedAt?: string;
 }
 
 export type EgyptBuildGameId =
@@ -544,6 +577,9 @@ export interface CountryReplayAttempt {
   egyptPerformStarted?: boolean;
   egyptCompletedPerformIds?: string[];
   egyptPerformJournal?: EgyptPerformEvidenceRecord[];
+  egyptPerformReflection?: EgyptPerformReflectionState;
+  egyptPerformCompleted?: boolean;
+  egyptChamberUnsealed?: boolean;
 }
 
 export interface CountryReplayHistoryRecord {

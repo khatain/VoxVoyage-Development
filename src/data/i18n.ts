@@ -1104,6 +1104,38 @@ export const GAME_COPY: Record<
     egyptPerformReflectionPendingTitle: string;
     egyptPerformReflectionPendingDesc: string;
     egyptPerformGuideCardDesc: string;
+    // Phase 5F.1: Egypt Final Self-Reflection, Chamber Unsealing & Global Explorer Finale
+    egyptPerformCompletedCountryBadge: string;
+    egyptPerformStageButtonCompleted: string;
+    egyptChamberUnsealedBadge: string;
+    egyptChamberOpenCeremonyCta: string;
+    egyptReflectionGateTitle: string;
+    egyptReflectionGatePendingDesc: string;
+    egyptReflectionResumeBanner: string;
+    egyptReflectionResumeDraftCta: string;
+    egyptReflectionStartCta: string;
+    egyptReflectionReviewCta: string;
+    egyptReflectionSaveDraftBtn: string;
+    egyptReflectionReviewBeforeSubmitBtn: string;
+    egyptReflectionBackToEditBtn: string;
+    egyptReflectionSubmitFinalBtn: string;
+    egyptChamberCeremonyEyebrow: string;
+    egyptChamberCeremonyTitle: string;
+    egyptChamberSkipAnim: string;
+    egyptChamberLaunchFinaleCta: string;
+    egyptChamberContinueExploringCta: string;
+    globalFinaleEyebrow: string;
+    globalFinaleTitle: string;
+    globalFinaleSubtitle: string;
+    globalFinaleDisclaimer: string;
+    globalFinaleReviewJourneyCta: string;
+    globalFinaleContinueExploringCta: string;
+    globalFinaleReturnWorldMapCta: string;
+    learningLegacyTitle: string;
+    learningLegacySubtitle: string;
+    learningLegacyExportCta: string;
+    learningLegacyDisclaimer: string;
+    egyptReplayAvailableLabel: string;
     portableProgressButton: string;
     portableProgressTitle: string;
     portableProgressSubtitle: string;
@@ -2252,19 +2284,50 @@ export const GAME_COPY: Record<
     egyptPerformPlayMissionButton: 'Play PERFORM Mission',
     egyptPerformReviewMissionButton: 'Review / Revise Mission',
     egyptPerformCompletedBadge: 'PERFORM Recorded',
+    egyptPerformCompletedCountryBadge: 'Egypt Completed',
+    egyptPerformStageButtonCompleted: 'Showcase Complete',
     egyptPerformLockedNeedPractice: 'Complete Stage 3: PRACTICE first to unlock Stage 4: PERFORM.',
     egyptPerformLockedNeedLayla: 'Talk to Dr. Layla Hassan (or open the Grand Showcase) to begin Stage 4: PERFORM.',
     egyptPerformLockedPrevious: 'Complete previous showcase mission first:',
-    egyptPerformZeroXpNote: '+0 XP & 0 Passport Stamps in Phase 5E.1 — Chamber stays sealed until Final Self-Reflection in Phase 5F.',
+    egyptPerformZeroXpNote: '+0 XP per mission during Showcase — Final Self-Reflection unseals the Chamber of Wisdom and awards +100 XP & your Egypt Passport Stamp once.',
     egyptPerformOpenPortfolioButton: 'Performance Portfolio',
     egyptPerformJournalTabPerform: 'Stage 4 · Showcase Portfolio',
     egyptPerformPortfolioEmptyState: 'No Stage 4 Showcase evidence recorded yet. Complete missions inside Stage 4: PERFORM to build your portfolio here!',
-    egyptPerformChamberOutsideNote: 'Staged outside the still-sealed Chamber of Wisdom: present your Royal Expedition Showcase here. Chamber unsealing & Final Reflection open in Phase 5F.',
+    egyptPerformChamberOutsideNote: 'Staged outside the Chamber of Wisdom: present your Royal Expedition Showcase here, then complete your Final Self-Reflection to unseal the doors.',
     egyptPerformViewSummaryButton: 'Showcase Evidence Summary',
-    egyptPerformEvidenceCompleteTitle: 'Performance Evidence Complete — Final Self-Reflection Coming Soon',
-    egyptPerformReflectionPendingTitle: '5/5 Showcase Missions Recorded · Awaiting Phase 5F Final Self-Reflection',
-    egyptPerformReflectionPendingDesc: 'Your XP stays preserved at 1,150 and Passport Stamps remain 4/5. The Chamber of Wisdom stays sealed until Final Self-Reflection opens in Phase 5F.',
-    egyptPerformGuideCardDesc: 'Complete 5 authentic English showcase missions outside the Chamber of Wisdom (+0 XP until Final Self-Reflection in Phase 5F).',
+    egyptPerformEvidenceCompleteTitle: 'Performance Evidence Complete — Final Self-Reflection Ready',
+    egyptPerformReflectionPendingTitle: '5/5 Showcase Missions Recorded · Final Self-Reflection Required to Unseal Chamber',
+    egyptPerformReflectionPendingDesc: 'Your XP stays at 1,150 XP and Stamps remain 4/5 until you submit the mandatory Final Self-Reflection. Once submitted, the Chamber of Wisdom unseals and awards +100 XP and your Egypt Passport Stamp.',
+    egyptPerformGuideCardDesc: 'Complete 5 authentic English showcase missions outside the Chamber of Wisdom, then submit Final Self-Reflection for +100 XP & Stamp.',
+    egyptChamberUnsealedBadge: 'Chamber Unsealed',
+    egyptChamberOpenCeremonyCta: 'Enter Chamber Ceremony',
+    egyptReflectionGateTitle: "The Explorer's Final Reflection",
+    egyptReflectionGatePendingDesc: 'All 5 PERFORM Showcase records are saved! Complete your Final Self-Reflection to unseal the Chamber of Wisdom and earn +100 XP & the Egypt Stamp.',
+    egyptReflectionResumeBanner: 'Final Self-Reflection Pending — Chamber Still Sealed',
+    egyptReflectionResumeDraftCta: 'Resume Final Reflection',
+    egyptReflectionStartCta: 'Start Final Self-Reflection',
+    egyptReflectionReviewCta: 'Review Final Reflection',
+    egyptReflectionSaveDraftBtn: 'Save Draft',
+    egyptReflectionReviewBeforeSubmitBtn: 'Review Before Submitting',
+    egyptReflectionBackToEditBtn: 'Back to Edit',
+    egyptReflectionSubmitFinalBtn: 'Submit Final Reflection & Unseal Chamber',
+    egyptChamberCeremonyEyebrow: 'Chamber of Wisdom · Expedition Finale',
+    egyptChamberCeremonyTitle: 'Unsealing the Chamber of Wisdom',
+    egyptChamberSkipAnim: 'Skip Animation',
+    egyptChamberLaunchFinaleCta: 'View Global Explorer Finale',
+    egyptChamberContinueExploringCta: 'Continue Exploring',
+    globalFinaleEyebrow: 'All 5 Nations Completed · 5/5 Passport Stamps',
+    globalFinaleTitle: 'The Legacy of a Global Explorer',
+    globalFinaleSubtitle: 'Across India, Kenya, Scotland, Australia, and Egypt, your English voice carried curiosity, respect, and clear communication.',
+    globalFinaleDisclaimer: 'In-game achievement summary only: VoxVoyage badges, XP, stamps, and Learning Legacy records celebrate your personal game progress and do not constitute an official English qualification, accredited CEFR diploma, or formal school grade.',
+    globalFinaleReviewJourneyCta: 'Review My Learning Journey',
+    globalFinaleContinueExploringCta: 'Continue Exploring',
+    globalFinaleReturnWorldMapCta: 'Return to World Map',
+    learningLegacyTitle: 'My Learning Legacy',
+    learningLegacySubtitle: 'Your personal 5-country archive, Passport Stamps, Egypt Journals, Performance Portfolio & Final Reflection',
+    learningLegacyExportCta: 'Export Portable Progress (JSON)',
+    learningLegacyDisclaimer: 'Personal progress archive only (saved locally in your browser). Not an official English certification or accredited transcript.',
+    egyptReplayAvailableLabel: 'Replay Egypt Expedition (Safe Mode)',
     portableProgressButton: 'Backup / Portable Progress',
     portableProgressTitle: 'Portable Progress Export & Import',
     portableProgressSubtitle: 'Save your real explorer progress as a local JSON file or restore it in another workspace.',
@@ -2313,7 +2376,7 @@ export const GAME_COPY: Record<
     qaDifficultyLabel: 'Difficulty Mode',
     qaActivityLabel: 'Activity / Station',
     qaComingSoonBadge: 'Coming Soon',
-    qaComingSoonBlockedNote: 'Egypt Final Self-Reflection & Chamber Unsealing belong to Phase 5F and remain Coming Soon.',
+    qaComingSoonBlockedNote: 'Selected stage is not yet implemented for direct launch.',
     qaStartStageButton: 'Start Selected Stage',
     qaResumeSessionButton: 'Resume QA Session',
     qaResetSessionButton: 'Reset QA Session',
@@ -3412,19 +3475,50 @@ export const GAME_COPY: Record<
     egyptPerformPlayMissionButton: 'ทำภารกิจ PERFORM',
     egyptPerformReviewMissionButton: 'ทบทวน / แก้ไขภารกิจ',
     egyptPerformCompletedBadge: 'บันทึก PERFORM แล้ว',
+    egyptPerformCompletedCountryBadge: 'สำเร็จภารกิจอียิปต์แล้ว',
+    egyptPerformStageButtonCompleted: 'นำเสนอครบถ้วนแล้ว',
     egyptPerformLockedNeedPractice: 'กรุณาผ่านด่านที่ 3: PRACTICE ให้ครบก่อนเพื่อปลดล็อกด่าน 4: PERFORM',
     egyptPerformLockedNeedLayla: 'คุยกับ ดร.ไลลา ฮัสซัน (หรือเปิดด่านนำเสนอใหญ่) เพื่อเริ่มด่านที่ 4: PERFORM',
     egyptPerformLockedPrevious: 'กรุณาผ่านภารกิจนำเสนอก่อนหน้าก่อน:',
-    egyptPerformZeroXpNote: '+0 XP และ 0 ตราพาสปอร์ตใน Phase 5E.1 — ประตูโถงยังปิดผนึกจนกว่าจะถึงแบบสะท้อนคิดขั้นสุดท้ายใน Phase 5F',
+    egyptPerformZeroXpNote: '+0 XP ระหว่างด่านนำเสนอ — เมื่อส่งแบบสะท้อนคิดขั้นสุดท้ายจึงจะเปิดผนึกโถงแห่งปัญญาและรับ +100 XP พร้อมตราพาสปอร์ตอียิปต์',
     egyptPerformOpenPortfolioButton: 'แฟ้มผลงานการนำเสนอ',
     egyptPerformJournalTabPerform: 'ด่าน 4 · แฟ้มผลงาน Showcase',
     egyptPerformPortfolioEmptyState: 'ยังไม่มีบันทึกหลักฐานด่าน 4 ทำภารกิจในด่านที่ 4: PERFORM เพื่อเก็บผลงานภาษาอังกฤษของคุณที่นี่!',
-    egyptPerformChamberOutsideNote: 'จัดแสดงหน้าประตูโถงแห่งปัญญาที่ยังปิดผนึก: นำเสนอแผนสำรวจใหญ่ได้ที่นี่ (การเปิดประตูโถงและสะท้อนคิดขั้นสุดท้ายจะเปิดใน Phase 5F)',
+    egyptPerformChamberOutsideNote: 'จัดแสดงหน้าโถงแห่งปัญญา: นำเสนอแผนสำรวจใหญ่ที่นี่ จากนั้นทำแบบสะท้อนคิดขั้นสุดท้ายเพื่อเปิดผนึกประตูโถง',
     egyptPerformViewSummaryButton: 'สรุปหลักฐาน Grand Showcase',
-    egyptPerformEvidenceCompleteTitle: 'ส่งหลักฐานครบถ้วน — แบบสะท้อนคิดขั้นสุดท้ายเปิดเร็ว ๆ นี้',
-    egyptPerformReflectionPendingTitle: 'บันทึกครบ 5/5 ภารกิจแล้ว · รอแบบสะท้อนคิดขั้นสุดท้ายใน Phase 5F',
-    egyptPerformReflectionPendingDesc: 'คะแนน XP ยังคงอยู่ที่ 1,150 และตราประทับพาสปอร์ตยังอยู่ที่ 4/5 ประตูโถงแห่งปัญญายังคงปิดผนึกจนกว่า Phase 5F จะเปิดใช้งาน',
-    egyptPerformGuideCardDesc: 'ทำภารกิจสื่อสารภาษาอังกฤษจริง 5 ด่านหน้าประตูโถงแห่งปัญญา (+0 XP จนกว่าจะทำแบบสะท้อนคิดขั้นสุดท้ายใน Phase 5F)',
+    egyptPerformEvidenceCompleteTitle: 'ส่งหลักฐานครบถ้วน — พร้อมทำแบบสะท้อนคิดขั้นสุดท้ายแล้ว',
+    egyptPerformReflectionPendingTitle: 'บันทึกครบ 5/5 ภารกิจแล้ว · กรุณาส่งแบบสะท้อนคิดขั้นสุดท้ายเพื่อเปิดผนึกโถง',
+    egyptPerformReflectionPendingDesc: 'คะแนน XP จะยังคงอยู่ที่ 1,150 และตราประทับอยู่ที่ 4/5 จนกว่าคุณจะส่งแบบสะท้อนคิดขั้นสุดท้าย จากนั้นโถงแห่งปัญญาจะเปิดผนึกพร้อมมอบ +100 XP และตราอียิปต์',
+    egyptPerformGuideCardDesc: 'ทำภารกิจสื่อสารภาษาอังกฤษจริง 5 ด่านหน้าโถงแห่งปัญญา จากนั้นส่งแบบสะท้อนคิดขั้นสุดท้ายเพื่อรับ +100 XP และตราประทับ',
+    egyptChamberUnsealedBadge: 'เปิดผนึกโถงแล้ว',
+    egyptChamberOpenCeremonyCta: 'เข้าสู่พิธีเปิดโถงแห่งปัญญา',
+    egyptReflectionGateTitle: 'คำสะท้อนคิดขั้นสุดท้ายของนักสำรวจ',
+    egyptReflectionGatePendingDesc: 'บันทึกผลงาน PERFORM ครบ 5 ด่านแล้ว! ส่งแบบสะท้อนคิดขั้นสุดท้ายเพื่อเปิดผนึกโถงแห่งปัญญาและรับ +100 XP + ตราพาสปอร์ตอียิปต์',
+    egyptReflectionResumeBanner: 'รอส่งแบบสะท้อนคิดขั้นสุดท้าย — ประตูโถงยังปิดผนึก',
+    egyptReflectionResumeDraftCta: 'ทำแบบสะท้อนคิดต่อ',
+    egyptReflectionStartCta: 'เริ่มทำแบบสะท้อนคิดขั้นสุดท้าย',
+    egyptReflectionReviewCta: 'ทบทวนคำสะท้อนคิด',
+    egyptReflectionSaveDraftBtn: 'บันทึกร่าง',
+    egyptReflectionReviewBeforeSubmitBtn: 'ตรวจสอบก่อนส่ง',
+    egyptReflectionBackToEditBtn: 'กลับไปแก้ไข',
+    egyptReflectionSubmitFinalBtn: 'ส่งแบบสะท้อนคิดและเปิดผนึกโถง',
+    egyptChamberCeremonyEyebrow: 'โถงแห่งปัญญา · บทสรุปคณะสำรวจ',
+    egyptChamberCeremonyTitle: 'พิธีเปิดผนึกโถงแห่งปัญญา',
+    egyptChamberSkipAnim: 'ข้ามแอนิเมชัน',
+    egyptChamberLaunchFinaleCta: 'เข้าสู่ฉากสรุปนักสำรวจรอบโลก',
+    egyptChamberContinueExploringCta: 'สำรวจต่ออย่างอิสระ',
+    globalFinaleEyebrow: 'พิชิตครบ 5 ประเทศ · ตราประทับ 5/5',
+    globalFinaleTitle: 'ตำนานแห่งนักสำรวจรอบโลก (Legacy of a Global Explorer)',
+    globalFinaleSubtitle: 'จากอินเดีย เคนยา สกอตแลนด์ ออสเตรเลีย ถึงอียิปต์ เสียงภาษาอังกฤษของคุณได้เชื่อมโยงความรู้ ความเคารพ และการสื่อสารอย่างมั่นใจ',
+    globalFinaleDisclaimer: 'หมายเหตุ: เป็นเพียงสรุปความสำเร็จภายในเกม VoxVoyage เท่านั้น เหรียญตรา XP ตราประทับ และบันทึกการเรียนรู้ใช้เพื่อติดตามพัฒนาการส่วนตัว ไม่ถือเป็นใบรับรองมาตรฐาน CEFR อย่างเป็นทางการหรือวุฒิบัตรทางการศึกษา',
+    globalFinaleReviewJourneyCta: 'ทบทวนบันทึกการเรียนรู้ของฉัน',
+    globalFinaleContinueExploringCta: 'สำรวจต่อ',
+    globalFinaleReturnWorldMapCta: 'กลับสู่แผนที่โลก',
+    learningLegacyTitle: 'บันทึกการเรียนรู้ของฉัน (My Learning Legacy)',
+    learningLegacySubtitle: 'คลังข้อมูลส่วนตัวครบ 5 ประเทศ ตราพาสปอร์ต สมุดบันทึกอียิปต์ แฟ้ม Showcase และคำสะท้อนคิดขั้นสุดท้าย',
+    learningLegacyExportCta: 'ส่งออกความคืบหน้าแบบพกพา (JSON)',
+    learningLegacyDisclaimer: 'เอกสารสรุปพัฒนาการส่วนบุคคลภายในเกมเท่านั้น (บันทึกในเบราว์เซอร์ของคุณ) ไม่ใช่เอกสารรับรองผลภาษาอังกฤษอย่างเป็นทางการ',
+    egyptReplayAvailableLabel: 'เล่นซ้ำภารกิจอียิปต์ (โหมดปลอดภัย)',
     portableProgressButton: 'สำรอง / ย้ายความคืบหน้า (JSON)',
     portableProgressTitle: 'ส่งออกและนำเข้าความคืบหน้าแบบพกพา',
     portableProgressSubtitle: 'บันทึกความคืบหน้าของผู้เล่นจริงเป็นไฟล์ JSON บนเครื่อง หรือกู้คืนเมื่อเปลี่ยนเวิร์กสเปซ',
@@ -3473,7 +3567,7 @@ export const GAME_COPY: Record<
     qaDifficultyLabel: 'ระดับภาษา (CEFR)',
     qaActivityLabel: 'กิจกรรม / ด่านย่อย',
     qaComingSoonBadge: 'เร็ว ๆ นี้ (Coming Soon)',
-    qaComingSoonBlockedNote: 'แบบสะท้อนคิดขั้นสุดท้ายและการเปิดผนึกโถงแห่งปัญญาของอียิปต์อยู่ใน Phase 5F และยังคงสถานะ Coming Soon',
+    qaComingSoonBlockedNote: 'ด่านที่เลือกยังไม่เปิดให้เริ่มทดสอบโดยตรงในขณะนี้',
     qaStartStageButton: 'เปิดด่านที่เลือกทันที',
     qaResumeSessionButton: 'เล่นต่อในเซสชัน QA',
     qaResetSessionButton: 'รีเซ็ตเซสชัน QA',

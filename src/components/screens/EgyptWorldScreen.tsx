@@ -5,8 +5,10 @@ import {
   CheckCircle2,
   Coins,
   Compass,
+  Feather,
   Gamepad2,
   Gem,
+  Globe2,
   Info,
   Lock,
   MapPin,
@@ -16,6 +18,8 @@ import {
   Navigation,
   Pause,
   Play,
+  RefreshCw,
+  RotateCcw,
   Settings,
   SlidersHorizontal,
   Sparkles,
@@ -31,6 +35,7 @@ import type {
   CountryWorld,
   EgyptInstructionJournalRecord,
   EgyptPerformEvidenceRecord,
+  EgyptPerformReflectionState,
   EgyptPracticeEvidenceRecord,
   QaLaunchRequest,
   ResolvedAppearance,
@@ -86,6 +91,8 @@ import {
   EgyptPerformModal,
   type EgyptPerformModalView,
 } from '../egypt/EgyptPerformModal';
+import { EgyptFinalReflectionModal } from '../egypt/EgyptFinalReflectionModal';
+import { ChamberUnsealingModal } from '../egypt/ChamberUnsealingModal';
 import { EgyptFallback2D } from '../egypt/EgyptFallback2D';
 import { useWorldNavigation } from '../../utils/useWorldNavigation';
 import { SmartNavigationHud } from '../navigation/SmartNavigationHud';
@@ -132,6 +139,30 @@ interface EgyptWorldScreenProps {
   nextPerformLandmarkId: EgyptLandmarkId | null;
   performEvidenceComplete: boolean;
   performPortfolio: EgyptPerformEvidenceRecord[];
+  reflectionState?: EgyptPerformReflectionState;
+  hasReflectionDraft?: boolean;
+  performCompleted?: boolean;
+  chamberUnsealed?: boolean;
+  globalCompleted?: boolean;
+  completedAt?: string;
+  isReplayActive?: boolean;
+  replayAttemptNumber?: number;
+  canReplayCountry?: boolean;
+  openReflectionOnEnter?: boolean;
+  onConsumeOpenReflectionOnEnter?: () => void;
+  onSaveReflectionDraft?: (draft: EgyptPerformReflectionState) => void;
+  onSubmitFinalReflection?: (
+    submitted: EgyptPerformReflectionState,
+  ) => {
+    newlyCompleted: boolean;
+    newlyAwardedXp: number;
+    totalXp: number;
+    globalCompleted: boolean;
+  } | void;
+  onOpenGlobalFinale?: () => void;
+  onOpenLearningLegacy?: () => void;
+  onRequestReplayCountry?: () => void;
+  onRequestRestartAttempt?: () => void;
   onStartDiscovery: () => void;
   onCompleteDiscoveryMission: (landmarkId: EgyptLandmarkId) => boolean;
   onStartBuild: () => void;
@@ -216,7 +247,32 @@ export function EgyptWorldScreen({
   onOpenSettings,
   qaLaunchRequest = null,
   onGameplayModalChange,
-}: EgyptWorldScreenProps) {
+  reflectionState,
+  hasReflectionDraft = false,
+  performCompleted = false,
+  chamberUnsealed = false,
+  globalCompleted = false,
+  completedAt,
+  isReplayActive = false,
+  replayAttemptNumber = 0,
+  canReplayCountry = false,
+  openReflectionOnEnter = false,
+  onConsumeOpenReflectionOnEnter,
+  onSaveReflectionDraft,
+  onSubmitFinalReflection,
+  onOpenGlobalFinale,
+  onOpenLearningLegacy,
+  onRequestReplayCountry,
+  onRequestRestartAttempt,
+}: EgyptWorldScreenProps & {
+  completedBuildChallengeIds: string[];
+  completedPracticeChallengeIds: string[];
+}) {
+  const [reflectionModalOpen, setReflectionModalOpen] = useState(false);
+  const [chamberCeremonyState, setChamberCeremonyState] = useState<{
+    open: boolean;
+    newlyAwardedXp: number;
+  } | null>(null);
   const copy = GAME_COPY[language];
   const isNight = appearance === 'night';
 
@@ -304,6 +360,8 @@ export function EgyptWorldScreen({
         pauseMenuOpen ||
         externalModalOpen ||
         guideOpen ||
+        reflectionModalOpen ||
+        chamberCeremonyState?.open ||
         discoverModalView !== null ||
         buildModalView !== null ||
         practiceModalView !== null ||
@@ -361,6 +419,8 @@ export function EgyptWorldScreen({
       if (
         externalModalOpen ||
         guideOpen ||
+        reflectionModalOpen ||
+        chamberCeremonyState?.open ||
         discoverModalView !== null ||
         buildModalView !== null ||
         practiceModalView !== null ||
@@ -418,6 +478,8 @@ export function EgyptWorldScreen({
     activeModalPoiId !== null ||
     pauseMenuOpen ||
     guideOpen ||
+    reflectionModalOpen ||
+    Boolean(chamberCeremonyState?.open) ||
     discoverModalView !== null ||
     buildModalView !== null ||
     practiceModalView !== null ||
@@ -454,6 +516,9 @@ export function EgyptWorldScreen({
         performStarted,
         completedPerformIds,
         performEvidenceComplete,
+        performCompleted,
+        chamberUnsealed,
+        hasReflectionDraft,
       },
     },
     onSyncGuideTarget: (targetId) => {
@@ -487,14 +552,19 @@ export function EgyptWorldScreen({
           setBoundaryToast(copy.egyptNileWaterBoundaryToast);
           if (boundaryTimerRef.current !== null) window.clearTimeout(boundaryTimerRef.current);
           boundaryTimerRef.current = window.setTimeout(() => setBoundaryToast(null), 3200);
-        } else if (nextZone === 'chamber') {
+        } else if (nextZone === 'chamber' && !chamberUnsealed) {
           setBoundaryToast(copy.egyptChamberSealedDoorToast);
           if (boundaryTimerRef.current !== null) window.clearTimeout(boundaryTimerRef.current);
           boundaryTimerRef.current = window.setTimeout(() => setBoundaryToast(null), 3400);
         }
       }
     },
-    [copy.egyptChamberSealedDoorToast, copy.egyptNileWaterBoundaryToast, nav],
+    [
+      chamberUnsealed,
+      copy.egyptChamberSealedDoorToast,
+      copy.egyptNileWaterBoundaryToast,
+      nav,
+    ],
   );
 
   useEffect(() => {
@@ -789,6 +859,50 @@ export function EgyptWorldScreen({
     setPerformModalView({ kind: 'celebration', newlyCompleted: false });
   }, [nav, onPlaySfx, stopSpeech]);
 
+  const openFinalReflection = useCallback(() => {
+    stopSpeech();
+    nav.cancelNavigation('manual');
+    setActiveModalPoiId(null);
+    setGuideOpen(false);
+    setDiscoverModalView(null);
+    setBuildModalView(null);
+    setPracticeModalView(null);
+    setPerformModalView(null);
+    setChamberCeremonyState(null);
+    onPlaySfx('select');
+    setReflectionModalOpen(true);
+  }, [nav, onPlaySfx, stopSpeech]);
+
+  const openChamberCeremony = useCallback(
+    (newlyAwardedXp = 0) => {
+      stopSpeech();
+      nav.cancelNavigation('manual');
+      setActiveModalPoiId(null);
+      setGuideOpen(false);
+      setDiscoverModalView(null);
+      setBuildModalView(null);
+      setPracticeModalView(null);
+      setPerformModalView(null);
+      setReflectionModalOpen(false);
+      onPlaySfx('reward');
+      setChamberCeremonyState({ open: true, newlyAwardedXp });
+    },
+    [nav, onPlaySfx, stopSpeech],
+  );
+
+  useEffect(() => {
+    if (openReflectionOnEnter && performEvidenceComplete && !performCompleted) {
+      openFinalReflection();
+      onConsumeOpenReflectionOnEnter?.();
+    }
+  }, [
+    openReflectionOnEnter,
+    performEvidenceComplete,
+    performCompleted,
+    openFinalReflection,
+    onConsumeOpenReflectionOnEnter,
+  ]);
+
   useEffect(() => {
     if (!qaLaunchRequest || qaLaunchRequest.countryId !== 'egypt') return;
     if (qaLaunchRequest.nonce === lastQaNonceRef.current) return;
@@ -829,6 +943,14 @@ export function EgyptWorldScreen({
     if (qaLaunchRequest.stageId === 'perform' && performUnlocked) {
       if (qaLaunchRequest.activityId === 'portfolio') {
         openPerformPortfolio();
+      } else if (qaLaunchRequest.activityId === 'reflection') {
+        openFinalReflection();
+      } else if (qaLaunchRequest.activityId === 'chamber' && chamberUnsealed) {
+        openChamberCeremony(0);
+      } else if (qaLaunchRequest.activityId === 'global_finale' && globalCompleted) {
+        onOpenGlobalFinale?.();
+      } else if (qaLaunchRequest.activityId === 'learning_legacy') {
+        onOpenLearningLegacy?.();
       } else {
         const targetId =
           (qaLaunchRequest.activityId as EgyptLandmarkId | undefined) ??
@@ -842,6 +964,8 @@ export function EgyptWorldScreen({
     buildUnlocked,
     practiceUnlocked,
     performUnlocked,
+    chamberUnsealed,
+    globalCompleted,
     nextDiscoverLandmarkId,
     nextBuildLandmarkId,
     nextPracticeLandmarkId,
@@ -853,6 +977,10 @@ export function EgyptWorldScreen({
     openPracticeJournal,
     openPerformStation,
     openPerformPortfolio,
+    openFinalReflection,
+    openChamberCeremony,
+    onOpenGlobalFinale,
+    onOpenLearningLegacy,
   ]);
 
   const hudChipClass = isNight
@@ -878,6 +1006,7 @@ export function EgyptWorldScreen({
                 visitedPoiIds={visitedPoiIds}
                 nearestPoiId={nearestPoiId}
                 guidedPoiId={guidedPoiId}
+                chamberUnsealed={chamberUnsealed}
                 noticeText={copy.egyptFallback2dNotice}
                 autoWalkRequest={nav.autoWalkRequest}
                 quickTravelRequest={nav.quickTravelRequest}
@@ -908,6 +1037,7 @@ export function EgyptWorldScreen({
               onNearestPoiChange={setNearestPoiId}
               onActivatePoi={openPoiInteraction}
               onWebGLFailure={onWebGLFailure}
+              chamberUnsealed={chamberUnsealed}
             />
           </Suspense>
         ) : (
@@ -919,6 +1049,7 @@ export function EgyptWorldScreen({
             visitedPoiIds={visitedPoiIds}
             nearestPoiId={nearestPoiId}
             guidedPoiId={guidedPoiId}
+            chamberUnsealed={chamberUnsealed}
             noticeText={copy.egyptFallback2dNotice}
             autoWalkRequest={nav.autoWalkRequest}
             quickTravelRequest={nav.quickTravelRequest}
@@ -1043,26 +1174,70 @@ export function EgyptWorldScreen({
                   isNight ? 'text-[#CBD5E1]' : 'text-[#48607E]'
                 }`}
               >
-                {performEvidenceComplete
-                  ? copy.egyptPerformReflectionPendingTitle
-                  : practiceCompleted && performUnlocked
-                    ? !performStarted
-                      ? copy.egyptPerformLockedNeedLayla
-                      : `${copy.egyptPerformMissionsProgressLabel} (${completedPerformCount}/${totalLandmarks})`
-                    : buildCompleted && practiceUnlocked
-                      ? !practiceStarted
-                        ? copy.egyptPracticeLockedNeedLayla
-                        : `${copy.egyptPracticeStationsProgressLabel} (${completedPracticeCount}/${totalLandmarks})`
-                      : discoverCompleted && buildUnlocked
-                        ? !buildStarted
-                          ? copy.egyptBuildLockedNeedLayla
-                          : `${copy.egyptBuildStationsProgressLabel} (${completedBuildCount}/${totalLandmarks})`
-                        : !discoverStarted
-                          ? copy.egyptObjectiveMeetAllNpcs
-                          : `${copy.egyptObjectiveExplore} (${completedDiscoverCount}/${totalLandmarks})`}
+                {performCompleted
+                  ? copy.egyptPerformCompletedCountryBadge
+                  : performEvidenceComplete
+                    ? hasReflectionDraft
+                      ? copy.egyptReflectionResumeBanner
+                      : copy.egyptPerformReflectionPendingTitle
+                    : practiceCompleted && performUnlocked
+                      ? !performStarted
+                        ? copy.egyptPerformLockedNeedLayla
+                        : `${copy.egyptPerformMissionsProgressLabel} (${completedPerformCount}/${totalLandmarks})`
+                      : buildCompleted && practiceUnlocked
+                        ? !practiceStarted
+                          ? copy.egyptPracticeLockedNeedLayla
+                          : `${copy.egyptPracticeStationsProgressLabel} (${completedPracticeCount}/${totalLandmarks})`
+                        : discoverCompleted && buildUnlocked
+                          ? !buildStarted
+                            ? copy.egyptBuildLockedNeedLayla
+                            : `${copy.egyptBuildStationsProgressLabel} (${completedBuildCount}/${totalLandmarks})`
+                          : !discoverStarted
+                            ? copy.egyptObjectiveMeetAllNpcs
+                            : `${copy.egyptObjectiveExplore} (${completedDiscoverCount}/${totalLandmarks})`}
               </p>
             </div>
           </div>
+
+          {performEvidenceComplete && !performCompleted && (
+            <button
+              type="button"
+              data-testid="egypt-hud-resume-reflection-button"
+              onClick={openFinalReflection}
+              className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-3.5 py-1.5 text-xs font-extrabold text-[#131E31] shadow-md hover:brightness-105 whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Feather className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>
+                {hasReflectionDraft
+                  ? copy.egyptReflectionResumeDraftCta
+                  : copy.egyptReflectionStartCta}
+              </span>
+            </button>
+          )}
+
+          {performCompleted && chamberUnsealed && (
+            <button
+              type="button"
+              data-testid="egypt-hud-chamber-button"
+              onClick={() => openChamberCeremony(0)}
+              className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-[#0F766E] px-3 py-1.5 text-xs font-extrabold text-[#FEF3C7] shadow-md hover:bg-[#0D9488] whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-[#F2C66D]" aria-hidden="true" />
+              <span>{copy.egyptChamberUnsealedBadge}</span>
+            </button>
+          )}
+
+          {globalCompleted && onOpenGlobalFinale && (
+            <button
+              type="button"
+              data-testid="egypt-hud-global-finale-button"
+              onClick={onOpenGlobalFinale}
+              className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-3 py-1.5 text-xs font-extrabold text-[#131E31] shadow-md hover:brightness-105 whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden lg:inline">{copy.globalFinaleTitle}</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -1511,15 +1686,39 @@ export function EgyptWorldScreen({
                             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>{copy.egyptPerformStartButton}</span>
                           </button>
-                        ) : performEvidenceComplete ? (
+                        ) : performEvidenceComplete && !performCompleted ? (
                           <button
                             type="button"
-                            onClick={openPerformCelebration}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-4 py-2 text-xs font-extrabold text-[#131E31] hover:bg-[#F2C66D] cursor-pointer"
+                            data-testid="layla-open-reflection-button"
+                            onClick={openFinalReflection}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-4 py-2 text-xs font-extrabold text-[#131E31] shadow hover:brightness-105 cursor-pointer"
                           >
-                            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
-                            <span>{copy.egyptPerformViewSummaryButton}</span>
+                            <Feather className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>
+                              {hasReflectionDraft
+                                ? copy.egyptReflectionResumeDraftCta
+                                : copy.egyptReflectionStartCta}
+                            </span>
                           </button>
+                        ) : performCompleted ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openChamberCeremony(0)}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-3.5 py-2 text-xs font-extrabold text-[#131E31] hover:bg-[#F2C66D] cursor-pointer"
+                            >
+                              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                              <span>{copy.egyptChamberOpenCeremonyCta}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={openFinalReflection}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-[#24B8B0]/45 bg-[#24B8B0]/15 px-3 py-2 text-xs font-extrabold text-[#0E7A74] dark:text-[#5EEAD4] cursor-pointer"
+                            >
+                              <Feather className="h-3.5 w-3.5" aria-hidden="true" />
+                              <span>{copy.egyptReflectionReviewCta}</span>
+                            </button>
+                          </div>
                         ) : nextPerformLandmarkId ? (
                           <button
                             type="button"
@@ -2106,10 +2305,17 @@ export function EgyptWorldScreen({
                       {activeLandmark.zoneBadge[language]}
                     </p>
                     {activeLandmark.isSealedInPhase5A && (
-                      <span className="inline-flex items-center gap-1 rounded bg-[#1E293B] px-1.5 py-0.5 text-[10px] font-extrabold text-[#FDE68A]">
-                        <Lock className="h-2.5 w-2.5" aria-hidden="true" />
-                        <span>{copy.egyptChamberSealedBadge}</span>
-                      </span>
+                      chamberUnsealed ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-[#0F766E] px-1.5 py-0.5 text-[10px] font-extrabold text-[#FEF3C7]">
+                          <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
+                          <span>{copy.egyptChamberUnsealedBadge}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded bg-[#1E293B] px-1.5 py-0.5 text-[10px] font-extrabold text-[#FDE68A]">
+                          <Lock className="h-2.5 w-2.5" aria-hidden="true" />
+                          <span>{copy.egyptChamberSealedBadge}</span>
+                        </span>
+                      )
                     )}
                   </div>
                   <h2
@@ -2144,16 +2350,42 @@ export function EgyptWorldScreen({
 
             <div className="mt-4 space-y-3">
               {activeLandmark.isSealedInPhase5A && (
-                <div
-                  className={`flex items-center gap-2 rounded-2xl border p-3 text-xs font-bold ${
-                    isNight
-                      ? 'border-[#E7B43C]/45 bg-[#2A2013] text-[#FDE68A]'
-                      : 'border-[#F59E0B] bg-[#FFFBEB] text-[#92400E]'
-                  }`}
-                >
-                  <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>{copy.egyptChamberSealedBanner}</span>
-                </div>
+                chamberUnsealed ? (
+                  <div
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border p-3 text-xs font-bold ${
+                      isNight
+                        ? 'border-[#24B8B0]/50 bg-[#0F2A2A] text-[#99F6E4]'
+                        : 'border-[#0E7A74]/35 bg-[#ECFDF5] text-[#065F46]'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 shrink-0 text-[#D4A14A]" aria-hidden="true" />
+                      <span>
+                        {language === 'th'
+                          ? 'โถงแห่งปัญญาเปิดผนึกแล้ว — สามารถเปิดพิธีเปิดโถงหรือดูบันทึกการเรียนรู้ได้'
+                          : 'Chamber of Wisdom is unsealed! Revisit the ceremony or review your reflection anytime.'}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openChamberCeremony(0)}
+                      className="rounded-xl bg-[#D4A14A] px-3 py-1.5 text-xs font-extrabold text-[#131E31] cursor-pointer"
+                    >
+                      {copy.egyptChamberOpenCeremonyCta}
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className={`flex items-center gap-2 rounded-2xl border p-3 text-xs font-bold ${
+                      isNight
+                        ? 'border-[#E7B43C]/45 bg-[#2A2013] text-[#FDE68A]'
+                        : 'border-[#F59E0B] bg-[#FFFBEB] text-[#92400E]'
+                    }`}
+                  >
+                    <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>{copy.egyptChamberSealedBanner}</span>
+                  </div>
+                )
               )}
 
               <p className="text-sm leading-relaxed">
@@ -2243,6 +2475,23 @@ export function EgyptWorldScreen({
                             </span>
                           </button>
                         ) : null}
+
+                        {activeLandmark.id === 'chamber_of_wisdom' &&
+                          performEvidenceComplete &&
+                          !performCompleted && (
+                            <button
+                              type="button"
+                              onClick={openFinalReflection}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-4 py-2 text-xs font-extrabold text-[#131E31] shadow cursor-pointer"
+                            >
+                              <Feather className="h-3.5 w-3.5" aria-hidden="true" />
+                              <span>
+                                {hasReflectionDraft
+                                  ? copy.egyptReflectionResumeDraftCta
+                                  : copy.egyptReflectionStartCta}
+                              </span>
+                            </button>
+                          )}
 
                         <button
                           type="button"
@@ -2633,6 +2882,10 @@ export function EgyptWorldScreen({
         completedPerformIds={completedPerformIds}
         nextPerformLandmarkId={nextPerformLandmarkId}
         performEvidenceComplete={performEvidenceComplete}
+        performCompleted={performCompleted}
+        hasReflectionDraft={hasReflectionDraft}
+        chamberUnsealed={chamberUnsealed}
+        globalCompleted={globalCompleted}
         performPortfolio={performPortfolio}
         onStartDiscovery={openDiscoverIntro}
         onLaunchDiscoverGame={openDiscoverStation}
@@ -2646,6 +2899,10 @@ export function EgyptWorldScreen({
         onStartPerform={openPerformIntro}
         onLaunchPerformGame={openPerformStation}
         onOpenPerformCelebration={openPerformCelebration}
+        onOpenFinalReflection={openFinalReflection}
+        onOpenChamberCeremony={() => openChamberCeremony(0)}
+        onOpenLearningLegacy={onOpenLearningLegacy}
+        onOpenGlobalFinale={onOpenGlobalFinale}
         onGuideToLandmark={(id) => setGuidedPoiId(id)}
         onClearGuide={() => setGuidedPoiId(null)}
         onAutoWalkToLandmark={(id) => nav.startAutoWalk(id)}
@@ -2744,6 +3001,65 @@ export function EgyptWorldScreen({
         onClose={() => setPerformModalView(null)}
         onPlaySfx={onPlaySfx}
         initialDifficulty={qaDifficulty}
+        performCompleted={performCompleted}
+        hasReflectionDraft={hasReflectionDraft}
+        chamberUnsealed={chamberUnsealed}
+        onOpenFinalReflection={openFinalReflection}
+        onOpenChamberCeremony={() => openChamberCeremony(0)}
+        onAutoOpenFinalReflection={() => {
+          setPerformModalView(null);
+          setReflectionModalOpen(true);
+        }}
+      />
+
+      {/* Stage 5 Final Self-Reflection Gate Modal */}
+      <EgyptFinalReflectionModal
+        isOpen={reflectionModalOpen}
+        language={language}
+        appearance={appearance}
+        reducedMotion={reducedMotion}
+        performCompleted={performCompleted}
+        alreadySubmittedAt={completedAt}
+        initialReflection={reflectionState}
+        initialDifficulty={qaDifficulty}
+        performPortfolio={performPortfolio}
+        buildJournal={buildJournal}
+        practiceJournal={practiceJournal}
+        onSaveDraft={(draft) => onSaveReflectionDraft?.(draft)}
+        onSubmitReflection={(submitted) => {
+          const result = onSubmitFinalReflection?.(submitted);
+          setReflectionModalOpen(false);
+          setChamberCeremonyState({
+            open: true,
+            newlyAwardedXp: result ? result.newlyAwardedXp : 0,
+          });
+        }}
+        onClose={() => setReflectionModalOpen(false)}
+        onPlaySfx={(kind) => onPlaySfx(kind === 'complete' ? 'reward' : kind)}
+      />
+
+      {/* Chamber of Wisdom Unsealing Ceremony */}
+      <ChamberUnsealingModal
+        isOpen={Boolean(chamberCeremonyState?.open)}
+        language={language}
+        appearance={appearance}
+        reducedMotion={reducedMotion}
+        alreadyCompleted={performCompleted && (chamberCeremonyState?.newlyAwardedXp ?? 0) === 0}
+        newlyAwardedXp={chamberCeremonyState?.newlyAwardedXp ?? 0}
+        totalXp={rewards.xp}
+        completedAt={completedAt}
+        globalAdventureCompleted={globalCompleted}
+        onLaunchGlobalFinale={() => {
+          setChamberCeremonyState(null);
+          onOpenGlobalFinale?.();
+        }}
+        onOpenReflectionReview={() => {
+          setChamberCeremonyState(null);
+          setReflectionModalOpen(true);
+        }}
+        onContinueExploring={() => setChamberCeremonyState(null)}
+        onClose={() => setChamberCeremonyState(null)}
+        onPlaySfx={(kind) => onPlaySfx(kind === 'complete' ? 'reward' : kind)}
       />
 
       {/* Pause Menu Modal */}
@@ -2862,6 +3178,81 @@ export function EgyptWorldScreen({
                 <Settings className="h-4 w-4" aria-hidden="true" />
                 <span>{copy.settingsButton}</span>
               </button>
+
+              {onOpenLearningLegacy && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPlaySfx('click');
+                    setPauseMenuOpen(false);
+                    onOpenLearningLegacy();
+                  }}
+                  className={`flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold cursor-pointer ${
+                    isNight
+                      ? 'border-[#24B8B0]/40 bg-[#102A33] text-[#5EEAD4] hover:bg-[#153944]'
+                      : 'border-[#0D9488]/30 bg-[#F0FDFA] text-[#0F766E] hover:bg-[#CCFBF1]'
+                  }`}
+                >
+                  <BookOpen className="h-4 w-4" aria-hidden="true" />
+                  <span>{copy.learningLegacyTitle}</span>
+                </button>
+              )}
+
+              {globalCompleted && onOpenGlobalFinale && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPlaySfx('reward');
+                    setPauseMenuOpen(false);
+                    onOpenGlobalFinale();
+                  }}
+                  className="flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#D4A14A] to-[#F2C66D] px-4 py-2 text-xs font-extrabold text-[#131E31] hover:brightness-105 cursor-pointer"
+                >
+                  <Globe2 className="h-4 w-4" aria-hidden="true" />
+                  <span>{copy.globalFinaleTitle}</span>
+                </button>
+              )}
+
+              {canReplayCountry && onRequestReplayCountry && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPlaySfx('click');
+                    setPauseMenuOpen(false);
+                    onRequestReplayCountry();
+                  }}
+                  className={`flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold cursor-pointer ${
+                    isNight
+                      ? 'border-[#24B8B0]/45 bg-[#18313D] text-[#E6FAF5] hover:bg-[#1E404F]'
+                      : 'border-[#24B8B0]/40 bg-[#E9FBF7] text-[#0E7A74] hover:bg-[#D5F5EE]'
+                  }`}
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  <span>
+                    {copy.egyptReplayAvailableLabel}
+                    {isReplayActive ? ` (#${replayAttemptNumber})` : ''}
+                  </span>
+                </button>
+              )}
+
+              {isReplayActive && onRequestRestartAttempt && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPlaySfx('click');
+                    setPauseMenuOpen(false);
+                    onRequestRestartAttempt();
+                  }}
+                  className={`flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold cursor-pointer ${
+                    isNight
+                      ? 'border-[#F2C66D]/45 bg-[#2A2215] text-[#FDE68A] hover:bg-[#3A2E1A]'
+                      : 'border-[#D98218]/35 bg-[#FFF7E3] text-[#8E5B08] hover:bg-[#FFEDC2]'
+                  }`}
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  <span>{copy.restartAttemptButton}</span>
+                </button>
+              )}
 
               <button
                 type="button"

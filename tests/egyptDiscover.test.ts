@@ -535,8 +535,8 @@ describe('Phase 5B: Egypt — Stage 1 DISCOVER (Secrets of the Pharaohs)', () =>
     assert.equal(getEgyptEffectiveEntry(p).currentStage, 'build');
     assert.deepEqual(getEgyptEffectiveEntry(p).completedActivityIds, [EGYPT_DISCOVERY_ACTIVITY_ID]);
 
-    // Country Replay stays disabled until Phase 5E
-    assert.equal(COUNTRY_REPLAY_CAPABILITIES.egypt.isImplemented, false);
+    // Country Replay is enabled in Phase 5F.1 once Egypt lifetime completion is reached
+    assert.equal(COUNTRY_REPLAY_CAPABILITIES.egypt.isImplemented, true);
   });
 
   it('sanitizes tampered/locked Egypt DISCOVER payloads and recalculates legitimate +50 XP on load', () => {
