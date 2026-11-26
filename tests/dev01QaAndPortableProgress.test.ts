@@ -220,15 +220,15 @@ describe('DEV-01: Developer QA Console & Portable Progress', () => {
     assert.equal(canNavigateToCountry(ausPractice, 'australia'), true);
     assert.equal(isAustraliaMissionCompleted(ausPractice), false);
 
-    // Egypt PRACTICE is now implemented (Phase 5D.1) while Egypt PERFORM stays Coming Soon
+    // Egypt PRACTICE (Phase 5D.1) and Stage 4 PERFORM (Phase 5E.1) are implemented
     const practiceMeta = getQaStageEntry('egypt', 'practice');
     const performMeta = getQaStageEntry('egypt', 'perform');
     assert.equal(practiceMeta?.implemented, true);
     assert.equal(practiceMeta?.comingSoon, false);
-    assert.equal(performMeta?.implemented, false);
-    assert.equal(performMeta?.comingSoon, true);
+    assert.equal(performMeta?.implemented, true);
+    assert.equal(performMeta?.comingSoon, false);
     assert.equal(isQaTargetImplemented('egypt', 'practice'), true);
-    assert.equal(isQaTargetImplemented('egypt', 'perform'), false);
+    assert.equal(isQaTargetImplemented('egypt', 'perform'), true);
 
     const egyptPracticeLaunch = resolveQaLaunchPlan(
       { countryId: 'egypt', stageId: 'practice', cefrMode: 'a2', activityId: 'giza_pyramid_plaza' },
@@ -237,12 +237,16 @@ describe('DEV-01: Developer QA Console & Portable Progress', () => {
     assert.equal(egyptPracticeLaunch.allowed, true);
     assert.ok(egyptPracticeLaunch.progress);
 
-    const blockedPerform = resolveQaLaunchPlan(
-      { countryId: 'egypt', stageId: 'perform', cefrMode: 'a2' },
+    const egyptPerformLaunch = resolveQaLaunchPlan(
+      { countryId: 'egypt', stageId: 'perform', cefrMode: 'a2', activityId: 'nile_expedition_camp' },
       { qaAuthorized: true },
     );
-    assert.equal(blockedPerform.allowed, false);
-    assert.equal(blockedPerform.reason, 'coming_soon');
+    assert.equal(egyptPerformLaunch.allowed, true);
+    assert.equal(egyptPerformLaunch.progress?.rewards.xp, 1150);
+    assert.equal(
+      egyptPerformLaunch.progress?.rewards.stamps.includes('stamp_egypt_expedition'),
+      false,
+    );
 
     const deniedUnauthorized = resolveQaLaunchPlan(
       { countryId: 'egypt', stageId: 'build', cefrMode: 'a2' },
@@ -437,7 +441,7 @@ describe('DEV-01: Developer QA Console & Portable Progress', () => {
       assert.ok(String(enVal).trim().length > 0, `Empty EN string for ${key}`);
       assert.ok(String(thVal).trim().length > 0, `Empty TH string for ${key}`);
     }
-    assert.equal(QA_PRESET_CATALOG.length, 5);
+    assert.equal(QA_PRESET_CATALOG.length, 6);
     assert.equal(QA_WORLD_CATALOG.length, 5);
   });
 
@@ -670,11 +674,11 @@ describe('DEV-01: Developer QA Console & Portable Progress', () => {
     assert.equal(isAustraliaMissionCompleted(validatedNoReflection), false);
     assert.equal(canNavigateToCountry(validatedNoReflection, 'egypt'), false);
 
-    // Egypt DISCOVER -> BUILD -> PRACTICE implemented; PERFORM remains Coming Soon
+    // Egypt DISCOVER -> BUILD -> PRACTICE -> PERFORM (evidence stage) implemented
     const egyptDiscover = buildQaPresetProgress('egypt_discover_completed');
     assert.equal(isEgyptDiscoverCompleted(egyptDiscover), true);
     assert.equal(isEgyptBuildUnlocked(egyptDiscover), true);
     assert.equal(isQaTargetImplemented('egypt', 'practice'), true);
-    assert.equal(isQaTargetImplemented('egypt', 'perform'), false);
+    assert.equal(isQaTargetImplemented('egypt', 'perform'), true);
   });
 });

@@ -21,6 +21,7 @@ import {
 import type {
   AppLanguage,
   EgyptInstructionJournalRecord,
+  EgyptPerformEvidenceRecord,
   EgyptPracticeEvidenceRecord,
   ResolvedAppearance,
 } from '../../types/game';
@@ -34,6 +35,7 @@ import {
 import { getEgyptDiscoverMissionMeta } from '../../data/egyptDiscover';
 import { getEgyptBuildMissionMeta } from '../../data/egyptBuild';
 import { getEgyptPracticeMissionMeta } from '../../data/egyptPractice';
+import { getEgyptPerformMissionMeta } from '../../data/egyptPerform';
 import {
   EgyptLandmarkBadgeSVG,
   EgyptSkylineRibbonSVG,
@@ -63,6 +65,12 @@ interface EgyptExpeditionGuideModalProps {
   nextPracticeLandmarkId?: EgyptLandmarkId | null;
   practiceCompleted?: boolean;
   practiceJournal?: EgyptPracticeEvidenceRecord[];
+  performUnlocked?: boolean;
+  performStarted?: boolean;
+  completedPerformIds?: EgyptLandmarkId[];
+  nextPerformLandmarkId?: EgyptLandmarkId | null;
+  performEvidenceComplete?: boolean;
+  performPortfolio?: EgyptPerformEvidenceRecord[];
   onStartDiscovery?: () => void;
   onLaunchDiscoverGame?: (id: EgyptLandmarkId) => void;
   onOpenDiscoverCelebration?: () => void;
@@ -72,6 +80,9 @@ interface EgyptExpeditionGuideModalProps {
   onStartPractice?: () => void;
   onLaunchPracticeGame?: (id: EgyptLandmarkId) => void;
   onOpenPracticeCelebration?: () => void;
+  onStartPerform?: () => void;
+  onLaunchPerformGame?: (id: EgyptLandmarkId) => void;
+  onOpenPerformCelebration?: () => void;
   onGuideToLandmark: (id: EgyptLandmarkId) => void;
   onClearGuide: () => void;
   onAutoWalkToLandmark?: (id: EgyptLandmarkId) => void;
@@ -103,6 +114,12 @@ export function EgyptExpeditionGuideModal({
   nextPracticeLandmarkId = null,
   practiceCompleted = false,
   practiceJournal = [],
+  performUnlocked = false,
+  performStarted = false,
+  completedPerformIds = [],
+  nextPerformLandmarkId = null,
+  performEvidenceComplete = false,
+  performPortfolio = [],
   onStartDiscovery,
   onLaunchDiscoverGame,
   onOpenDiscoverCelebration,
@@ -112,6 +129,9 @@ export function EgyptExpeditionGuideModal({
   onStartPractice,
   onLaunchPracticeGame,
   onOpenPracticeCelebration,
+  onStartPerform,
+  onLaunchPerformGame,
+  onOpenPerformCelebration,
   onGuideToLandmark,
   onClearGuide,
   onAutoWalkToLandmark,
@@ -198,7 +218,9 @@ export function EgyptExpeditionGuideModal({
   const completedCount = completedDiscoverIds.length;
   const completedBuildCount = completedBuildIds.length;
   const completedPracticeCount = completedPracticeIds.length;
-  const totalJournalEntries = buildJournal.length + practiceJournal.length;
+  const completedPerformCount = completedPerformIds.length;
+  const totalJournalEntries =
+    buildJournal.length + practiceJournal.length + performPortfolio.length;
 
   const isStationPlayable = (landmarkId: EgyptLandmarkId): boolean => {
     if (!discoverStarted) return false;
@@ -224,6 +246,15 @@ export function EgyptExpeditionGuideModal({
       practiceCompleted ||
       completedPracticeIds.includes(landmarkId) ||
       nextPracticeLandmarkId === landmarkId
+    );
+  };
+
+  const isPerformStationPlayable = (landmarkId: EgyptLandmarkId): boolean => {
+    if (!performUnlocked || !performStarted) return false;
+    return (
+      performEvidenceComplete ||
+      completedPerformIds.includes(landmarkId) ||
+      nextPerformLandmarkId === landmarkId
     );
   };
 
@@ -428,11 +459,13 @@ export function EgyptExpeditionGuideModal({
                         : 'bg-[#FEF3C7] text-[#92400E]'
                     }`}
                   >
-                    {buildCompleted && practiceUnlocked
-                      ? `PRACTICE ${completedPracticeCount}/${totalCount}`
-                      : discoverCompleted && buildUnlocked
-                        ? `BUILD ${completedBuildCount}/${totalCount}`
-                        : `DISCOVER ${completedCount}/${totalCount}`}
+                    {practiceCompleted && performUnlocked
+                      ? `PERFORM ${completedPerformCount}/${totalCount}`
+                      : buildCompleted && practiceUnlocked
+                        ? `PRACTICE ${completedPracticeCount}/${totalCount}`
+                        : discoverCompleted && buildUnlocked
+                          ? `BUILD ${completedBuildCount}/${totalCount}`
+                          : `DISCOVER ${completedCount}/${totalCount}`}
                   </span>
                 </div>
                 <p
@@ -440,11 +473,13 @@ export function EgyptExpeditionGuideModal({
                     isNight ? 'text-[#2DD4BF]' : 'text-[#0F766E]'
                   }`}
                 >
-                  {buildCompleted && practiceUnlocked
-                    ? copy.egyptPracticeZeroXpStationNote
-                    : discoverCompleted && buildUnlocked
-                      ? copy.egyptBuildZeroXpStationNote
-                      : copy.egyptGuideZeroXpExplorationNote}
+                  {practiceCompleted && performUnlocked
+                    ? copy.egyptPerformZeroXpNote
+                    : buildCompleted && practiceUnlocked
+                      ? copy.egyptPracticeZeroXpStationNote
+                      : discoverCompleted && buildUnlocked
+                        ? copy.egyptBuildZeroXpStationNote
+                        : copy.egyptGuideZeroXpExplorationNote}
                 </p>
 
                 {!discoverStarted && onStartDiscovery && (
@@ -506,6 +541,25 @@ export function EgyptExpeditionGuideModal({
                     </button>
                   </div>
                 )}
+                {practiceCompleted && performUnlocked && !performStarted && onStartPerform && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                    <span className="text-xs font-bold">
+                      {copy.egyptPerformLockedNeedLayla}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPlaySfx('select');
+                        onStartPerform();
+                        onClose();
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-3.5 py-1.5 text-xs font-extrabold text-[#131E31] hover:bg-[#F2C66D] cursor-pointer"
+                    >
+                      <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{copy.egyptPerformStartButton}</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2.5">
@@ -514,11 +568,14 @@ export function EgyptExpeditionGuideModal({
                   const missionCompleted = completedDiscoverIds.includes(lm.id);
                   const buildStationCompleted = completedBuildIds.includes(lm.id);
                   const practiceStationCompleted = completedPracticeIds.includes(lm.id);
+                  const performStationCompleted = completedPerformIds.includes(lm.id);
                   const playable = isStationPlayable(lm.id);
                   const buildPlayable = isBuildStationPlayable(lm.id);
                   const practicePlayable = isPracticeStationPlayable(lm.id);
+                  const performPlayable = isPerformStationPlayable(lm.id);
                   const isNext =
-                    (buildCompleted && practiceStarted && nextPracticeLandmarkId === lm.id) ||
+                    (practiceCompleted && performStarted && nextPerformLandmarkId === lm.id) ||
+                    (buildCompleted && !practiceCompleted && practiceStarted && nextPracticeLandmarkId === lm.id) ||
                     (discoverCompleted && !buildCompleted && buildStarted && nextBuildLandmarkId === lm.id) ||
                     (!discoverCompleted && discoverStarted && nextDiscoverLandmarkId === lm.id) ||
                     (!discoverStarted && recommendedNext?.id === lm.id);
@@ -560,30 +617,34 @@ export function EgyptExpeditionGuideModal({
                             )}
                             <span
                               className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                                practiceStationCompleted
-                                  ? 'bg-[#10B981]/25 text-[#059669] dark:text-[#34D399]'
-                                  : buildStationCompleted
-                                    ? 'bg-[#10B981]/20 text-[#059669] dark:text-[#34D399]'
-                                    : missionCompleted
-                                      ? 'bg-[#10B981]/15 text-[#059669] dark:text-[#34D399]'
-                                      : visited
-                                        ? 'bg-[#0EA5E9]/15 text-[#0284C7] dark:text-[#7DD3FC]'
-                                        : 'bg-black/5 text-[#64748B] dark:bg-white/10 dark:text-[#CBD5E1]'
+                                performStationCompleted
+                                  ? 'bg-[#E7B43C]/25 text-[#B45309] dark:text-[#FDE68A]'
+                                  : practiceStationCompleted
+                                    ? 'bg-[#10B981]/25 text-[#059669] dark:text-[#34D399]'
+                                    : buildStationCompleted
+                                      ? 'bg-[#10B981]/20 text-[#059669] dark:text-[#34D399]'
+                                      : missionCompleted
+                                        ? 'bg-[#10B981]/15 text-[#059669] dark:text-[#34D399]'
+                                        : visited
+                                          ? 'bg-[#0EA5E9]/15 text-[#0284C7] dark:text-[#7DD3FC]'
+                                          : 'bg-black/5 text-[#64748B] dark:bg-white/10 dark:text-[#CBD5E1]'
                               }`}
                             >
-                              {(practiceStationCompleted || buildStationCompleted || missionCompleted) && (
+                              {(performStationCompleted || practiceStationCompleted || buildStationCompleted || missionCompleted) && (
                                 <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
                               )}
                               <span>
-                                {practiceStationCompleted
-                                  ? copy.egyptPracticeCompletedBadge
-                                  : buildStationCompleted
-                                    ? copy.egyptBuildCompletedBadge
-                                    : missionCompleted
-                                      ? copy.egyptDiscoverCompletedBadge
-                                      : visited
-                                        ? copy.egyptGuideVisitedBadge
-                                        : copy.egyptGuideNotVisitedBadge}
+                                {performStationCompleted
+                                  ? copy.egyptPerformCompletedBadge
+                                  : practiceStationCompleted
+                                    ? copy.egyptPracticeCompletedBadge
+                                    : buildStationCompleted
+                                      ? copy.egyptBuildCompletedBadge
+                                      : missionCompleted
+                                        ? copy.egyptDiscoverCompletedBadge
+                                        : visited
+                                          ? copy.egyptGuideVisitedBadge
+                                          : copy.egyptGuideNotVisitedBadge}
                               </span>
                             </span>
                           </div>
@@ -601,6 +662,25 @@ export function EgyptExpeditionGuideModal({
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                        {practiceCompleted && performUnlocked && onLaunchPerformGame && performPlayable && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onPlaySfx('select');
+                              onLaunchPerformGame(lm.id);
+                              onClose();
+                            }}
+                            className="inline-flex items-center gap-1 rounded-xl bg-[#E7B43C] px-3 py-1.5 text-xs font-extrabold text-[#131E31] hover:bg-[#F2C66D] cursor-pointer"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>
+                              {performStationCompleted
+                                ? copy.egyptPerformReviewMissionButton
+                                : copy.egyptPerformPlayMissionButton}
+                            </span>
+                          </button>
+                        )}
+
                         {buildCompleted && practiceUnlocked && onLaunchPracticeGame && practicePlayable && (
                           <button
                             type="button"
@@ -609,7 +689,13 @@ export function EgyptExpeditionGuideModal({
                               onLaunchPracticeGame(lm.id);
                               onClose();
                             }}
-                            className="inline-flex items-center gap-1 rounded-xl bg-[#0D9488] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#0F766E] cursor-pointer"
+                            className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-extrabold cursor-pointer ${
+                              practiceCompleted && performUnlocked
+                                ? isNight
+                                  ? 'border border-white/15 bg-white/10 text-[#CBD5E1] hover:bg-white/15'
+                                  : 'border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]'
+                                : 'bg-[#0D9488] text-white hover:bg-[#0F766E]'
+                            }`}
                           >
                             <Gamepad2 className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>
@@ -910,6 +996,54 @@ export function EgyptExpeditionGuideModal({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {practiceCompleted && performUnlocked && onLaunchPerformGame && isPerformStationPlayable(activeLandmark.id) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPlaySfx('select');
+                        onLaunchPerformGame(activeLandmark.id);
+                        onClose();
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-4 py-2 text-xs font-extrabold text-[#131E31] hover:bg-[#F2C66D] cursor-pointer"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>
+                        {completedPerformIds.includes(activeLandmark.id)
+                          ? copy.egyptPerformReviewMissionButton
+                          : copy.egyptPerformPlayMissionButton}
+                      </span>
+                    </button>
+                  ) : practiceCompleted && performUnlocked && !performStarted && onStartPerform ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPlaySfx('select');
+                        onStartPerform();
+                        onClose();
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-4 py-2 text-xs font-extrabold text-[#131E31] hover:bg-[#F2C66D] cursor-pointer"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{copy.egyptPerformStartButton}</span>
+                    </button>
+                  ) : practiceCompleted && performUnlocked ? (
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold ${
+                        isNight
+                          ? 'border-white/15 bg-white/5 text-[#CBD5E1]'
+                          : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#64748B]'
+                      }`}
+                    >
+                      <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>
+                        {copy.egyptPerformLockedPrevious}{' '}
+                        {nextPerformLandmarkId
+                          ? getEgyptPerformMissionMeta(nextPerformLandmarkId).title[language]
+                          : ''}
+                      </span>
+                    </span>
+                  ) : null}
+
                   {buildCompleted && practiceUnlocked && onLaunchPracticeGame && isPracticeStationPlayable(activeLandmark.id) ? (
                     <button
                       type="button"
@@ -918,7 +1052,13 @@ export function EgyptExpeditionGuideModal({
                         onLaunchPracticeGame(activeLandmark.id);
                         onClose();
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#0D9488] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#0F766E] cursor-pointer"
+                      className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-extrabold cursor-pointer ${
+                        practiceCompleted && performUnlocked
+                          ? isNight
+                            ? 'border border-white/15 bg-white/10 text-[#CBD5E1] hover:bg-white/15'
+                            : 'border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]'
+                          : 'bg-[#0D9488] text-white hover:bg-[#0F766E]'
+                      }`}
                     >
                       <Gamepad2 className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>
@@ -1107,7 +1247,10 @@ export function EgyptExpeditionGuideModal({
               isNight={isNight}
               entries={buildJournal}
               practiceEntries={practiceJournal}
-              initialTab={practiceStarted ? 'practice' : 'build'}
+              performEntries={performPortfolio}
+              initialTab={
+                performStarted ? 'perform' : practiceStarted ? 'practice' : 'build'
+              }
               showBlueprintPreview
               onPlaySfx={onPlaySfx}
             />
@@ -1384,41 +1527,101 @@ export function EgyptExpeditionGuideModal({
                 ) : null}
               </div>
 
-              {/* Locked Stage 4 PERFORM Card (Coming Soon) */}
+              {/* Stage 4 PERFORM Card — Grand Showcase + Phase 5F Reflection Notice */}
               <div
                 className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 ${
-                  isNight
-                    ? 'border-white/12 bg-[#16223F]'
-                    : 'border-[#E2E8F0] bg-white'
+                  performUnlocked
+                    ? isNight
+                      ? 'border-[#E7B43C]/45 bg-[#1B2542]'
+                      : 'border-[#F59E0B]/45 bg-[#FFFBEB]'
+                    : isNight
+                      ? 'border-white/12 bg-[#16223F]'
+                      : 'border-[#E2E8F0] bg-white'
                 }`}
               >
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-display text-sm font-extrabold">
-                    {copy.egyptGuideStagePerformTitle}
-                  </h4>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-display text-sm font-extrabold">
+                      {copy.egyptGuideStagePerformTitle}
+                    </h4>
+                    <span
+                      className={`rounded-lg px-2 py-0.5 text-[10px] font-extrabold ${
+                        performEvidenceComplete
+                          ? 'bg-[#059669] text-white'
+                          : performUnlocked
+                            ? 'bg-[#E7B43C] text-[#131E31]'
+                            : 'bg-black/10 text-[#64748B] dark:bg-white/10 dark:text-[#94A3B8]'
+                      }`}
+                    >
+                      {performEvidenceComplete
+                        ? `5/5 · ${copy.egyptGuideLockedFuturePhase}`
+                        : performUnlocked
+                          ? `${completedPerformCount}/${totalCount}`
+                          : copy.worldMapStatusLocked}
+                    </span>
+                  </div>
                   <p
                     className={`mt-1 text-xs leading-relaxed ${
                       isNight ? 'text-[#CBD5E1]' : 'text-[#475569]'
                     }`}
                   >
-                    {copy.egyptGuideStagePerformDesc}
+                    {performUnlocked
+                      ? copy.egyptPerformGuideCardDesc
+                      : copy.egyptGuideStagePerformDesc}
                   </p>
                 </div>
 
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-extrabold whitespace-nowrap shrink-0 ${
-                    practiceCompleted
-                      ? isNight
-                        ? 'border-[#E7B43C]/45 bg-[#2A2013] text-[#FDE68A]'
-                        : 'border-[#F59E0B]/40 bg-[#FFFBEB] text-[#92400E]'
-                      : isNight
+                {!performUnlocked ? (
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-extrabold whitespace-nowrap shrink-0 ${
+                      isNight
                         ? 'border-white/15 bg-white/8 text-[#94A3B8]'
                         : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#64748B]'
-                  }`}
-                >
-                  <Lock className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>{copy.egyptGuideLockedFuturePhase}</span>
-                </span>
+                    }`}
+                  >
+                    <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{copy.worldMapStatusLocked}</span>
+                  </span>
+                ) : performEvidenceComplete && onOpenPerformCelebration ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onPlaySfx('select');
+                      onOpenPerformCelebration();
+                      onClose();
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-3.5 py-2 text-xs font-extrabold text-[#131E31] hover:bg-[#F2C66D] cursor-pointer shrink-0"
+                  >
+                    <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{copy.egyptPerformViewSummaryButton}</span>
+                  </button>
+                ) : performStarted && nextPerformLandmarkId && onLaunchPerformGame ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onPlaySfx('select');
+                      onLaunchPerformGame(nextPerformLandmarkId);
+                      onClose();
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#0D9488] px-3.5 py-2 text-xs font-extrabold text-white hover:bg-[#0F766E] cursor-pointer shrink-0"
+                  >
+                    <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{getEgyptPerformMissionMeta(nextPerformLandmarkId).title[language]}</span>
+                  </button>
+                ) : onStartPerform ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onPlaySfx('select');
+                      onStartPerform();
+                      onClose();
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-3.5 py-2 text-xs font-extrabold text-[#131E31] hover:bg-[#F2C66D] cursor-pointer shrink-0"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{copy.egyptPerformStartButton}</span>
+                  </button>
+                ) : null}
               </div>
             </div>
           )}

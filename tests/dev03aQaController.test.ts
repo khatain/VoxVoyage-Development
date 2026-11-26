@@ -33,6 +33,8 @@ import {
   canNavigateToCountry,
   collectJaipurVocabObject,
   createDefaultProgress,
+  isEgyptPerformCompleted,
+  isEgyptPerformEvidenceComplete,
   isEgyptPracticeCompleted,
   markJaipurAaravMet,
 } from '../src/utils/progressStorage';
@@ -349,7 +351,7 @@ describe('DEV-03A: Non-Intrusive Developer QA Controller & Viewport Hotfix', () 
     assert.match(viteSrc, /source\.startsWith\('\.\/components\/qa\/'\)/);
   });
 
-  it('12. Preserves existing game progression, Australia reflection gate, Egypt 1,150 XP cap, and PERFORM Coming Soon', () => {
+  it('12. Preserves existing game progression, Australia reflection gate, Egypt 1,150 XP cap, and Stage 4 PERFORM evidence state', () => {
     const egyptPracticeDone = buildQaPresetProgress('egypt_practice_completed', { cefrMode: 'a2' });
     assert.equal(egyptPracticeDone.rewards.xp, 1150);
     assert.equal(isEgyptPracticeCompleted(egyptPracticeDone), true);
@@ -359,7 +361,15 @@ describe('DEV-03A: Non-Intrusive Developer QA Controller & Viewport Hotfix', () 
     );
 
     const performEntry = getQaStageEntry('egypt', 'perform');
-    assert.equal(performEntry?.implemented, false);
-    assert.equal(performEntry?.comingSoon, true);
+    assert.equal(performEntry?.implemented, true);
+    assert.equal(performEntry?.comingSoon, false);
+
+    const egyptPerformPending = buildQaPresetProgress('egypt_perform_awaiting_reflection', {
+      cefrMode: 'b1',
+    });
+    assert.equal(egyptPerformPending.rewards.xp, 1150);
+    assert.equal(egyptPerformPending.rewards.stamps.length, 4);
+    assert.equal(isEgyptPerformEvidenceComplete(egyptPerformPending), true);
+    assert.equal(isEgyptPerformCompleted(egyptPerformPending), false);
   });
 });

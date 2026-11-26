@@ -34,6 +34,7 @@ const VALID_PRESET_IDS = new Set<QaPresetId>([
   'egypt_discover_completed',
   'egypt_build_completed',
   'egypt_practice_completed',
+  'egypt_perform_awaiting_reflection',
   'selected_activity',
 ]);
 

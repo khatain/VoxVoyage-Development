@@ -361,8 +361,8 @@ export function DeveloperQaPanel({
             {selectedCountry === 'egypt' && (
               <p className="text-[11px] font-semibold text-[var(--vv-ink-muted)]">
                 {language === 'en'
-                  ? 'Egypt DISCOVER, BUILD, and PRACTICE (Phase 5D.1) are playable; Stage 4 PERFORM remains Coming Soon.'
-                  : 'ด่าน DISCOVER, BUILD และ PRACTICE (Phase 5D.1) ของอียิปต์พร้อมทดสอบแล้ว; ด่านที่ 4 PERFORM ยังคงสถานะ เร็ว ๆ นี้'}
+                  ? 'Egypt DISCOVER, BUILD, PRACTICE, and PERFORM (Phase 5E.1) are playable; Final Self-Reflection & Passport Stamp open in Phase 5F.'
+                  : 'ด่าน DISCOVER, BUILD, PRACTICE และ PERFORM (Phase 5E.1) ของอียิปต์พร้อมทดสอบแล้ว; แบบสะท้อนคิดและตราประทับจะเปิดใน Phase 5F'}
               </p>
             )}
 

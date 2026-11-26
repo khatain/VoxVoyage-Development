@@ -21,6 +21,7 @@ import {
 import type {
   AppLanguage,
   EgyptInstructionJournalRecord,
+  EgyptPerformEvidenceRecord,
   EgyptPracticeEvidenceRecord,
   LocalizedText,
   ResolvedAppearance,
@@ -86,6 +87,9 @@ interface EgyptPracticeModalProps {
   practiceCompleted: boolean;
   buildJournal: EgyptInstructionJournalRecord[];
   practiceJournal: EgyptPracticeEvidenceRecord[];
+  performUnlocked?: boolean;
+  performPortfolio?: EgyptPerformEvidenceRecord[];
+  onLaunchPerform?: () => void;
   totalXp: number;
   onStartPractice: () => void;
   onRecordPracticeChallenge: (record: EgyptPracticeEvidenceRecord) => void;
@@ -108,6 +112,9 @@ export function EgyptPracticeModal({
   practiceCompleted,
   buildJournal,
   practiceJournal,
+  performUnlocked = false,
+  performPortfolio,
+  onLaunchPerform,
   totalXp,
   onStartPractice,
   onRecordPracticeChallenge,
@@ -533,6 +540,7 @@ export function EgyptPracticeModal({
               isNight={isNight}
               entries={buildJournal}
               practiceEntries={practiceJournal}
+              performEntries={performPortfolio}
               initialTab="practice"
               showBlueprintPreview
               onPlaySfx={onPlaySfx}
@@ -710,24 +718,55 @@ export function EgyptPracticeModal({
               ))}
             </div>
 
-            {/* Stage 4 PERFORM Coming Soon Preview */}
-            <div
-              className={`flex items-start gap-3 rounded-2xl border p-3.5 ${
-                isNight
-                  ? 'border-[#E7B43C]/35 bg-[#2A2013]/80 text-[#FDE68A]'
-                  : 'border-[#FDE68A] bg-[#FFFBEB] text-[#92400E]'
-              }`}
-            >
-              <Lock className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
-              <div>
-                <p className="font-display text-xs sm:text-sm font-extrabold">
-                  {copy.egyptPracticePerformComingSoonTitle}
-                </p>
-                <p className="mt-0.5 text-xs opacity-90">
-                  {copy.egyptPracticePerformComingSoonDesc}
-                </p>
+            {/* Stage 4 PERFORM Unlocked CTA (or Fallback Coming Soon) */}
+            {performUnlocked && onLaunchPerform ? (
+              <div
+                className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3.5 ${
+                  isNight
+                    ? 'border-[#12B8B0]/45 bg-[#102A33]'
+                    : 'border-[#0D9488]/35 bg-[#F0FDFA]'
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-display text-xs sm:text-sm font-extrabold text-[#0D9488] dark:text-[#5EEAD4]">
+                    {copy.egyptPerformStageBadge} · {copy.egyptPerformStageTitle}
+                  </p>
+                  <p className="mt-0.5 text-xs opacity-90">
+                    {copy.egyptPerformGuideCardDesc}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopSpeech();
+                    onPlaySfx('reward');
+                    onLaunchPerform();
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7B43C] px-4 py-2 font-display text-xs font-extrabold text-[#131E31] shadow hover:bg-[#F2C66D] cursor-pointer shrink-0"
+                >
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{copy.egyptPerformStartButton}</span>
+                </button>
               </div>
-            </div>
+            ) : (
+              <div
+                className={`flex items-start gap-3 rounded-2xl border p-3.5 ${
+                  isNight
+                    ? 'border-[#E7B43C]/35 bg-[#2A2013]/80 text-[#FDE68A]'
+                    : 'border-[#FDE68A] bg-[#FFFBEB] text-[#92400E]'
+                }`}
+              >
+                <Lock className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+                <div>
+                  <p className="font-display text-xs sm:text-sm font-extrabold">
+                    {copy.egyptPracticePerformComingSoonTitle}
+                  </p>
+                  <p className="mt-0.5 text-xs opacity-90">
+                    {copy.egyptPracticePerformComingSoonDesc}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <button

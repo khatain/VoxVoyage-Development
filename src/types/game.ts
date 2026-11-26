@@ -356,6 +356,9 @@ export interface MissionProgressEntry {
   egyptCompletedPracticeChallengeIds?: string[];
   egyptCompletedPracticeIds?: string[];
   egyptPracticeJournal?: EgyptPracticeEvidenceRecord[];
+  egyptPerformStarted?: boolean;
+  egyptCompletedPerformIds?: string[];
+  egyptPerformJournal?: EgyptPerformEvidenceRecord[];
   completedAt?: string;
 }
 
@@ -418,6 +421,60 @@ export interface EgyptPracticeEvidenceRecord {
   completedAt: string;
   attemptNumber?: number;
   spokenRehearsalUsed?: boolean;
+}
+
+export type EgyptPerformMissionId =
+  | 'perf_m1_expedition_leader'
+  | 'perf_m2_master_navigator'
+  | 'perf_m3_knowledge_keeper'
+  | 'perf_m4_cultural_ambassador'
+  | 'perf_m5_grand_showcase';
+
+export type EgyptPerformPracticeMode =
+  | 'recorded_mic'
+  | 'written_or_rehearsal';
+
+export type EgyptPerformRubricCriterionId =
+  | 'task_achievement'
+  | 'language_clarity'
+  | 'organization_coherence'
+  | 'appropriate_vocabulary'
+  | 'scenario_responsiveness';
+
+export interface EgyptPerformRubricCheck {
+  criterionId: EgyptPerformRubricCriterionId;
+  level: 'strong' | 'developing' | 'needs_revision';
+  feedback: LocalizedText;
+}
+
+export interface EgyptPerformAssessmentResult {
+  objectiveChecksPassed: boolean;
+  evidenceChecksPassed: boolean;
+  readyToComplete: boolean;
+  wordCount: number;
+  criteria: EgyptPerformRubricCheck[];
+  strengths: LocalizedText[];
+  revisionSuggestions: LocalizedText[];
+  ruleBasedDisclaimer: LocalizedText;
+}
+
+export interface EgyptPerformEvidenceRecord {
+  id: string;
+  missionId: string;
+  performMissionId: EgyptPerformMissionId;
+  landmarkId: string;
+  missionTitle: LocalizedText;
+  cefrLevel: 'a2' | 'b1';
+  practiceMode: EgyptPerformPracticeMode;
+  completedTaskIds: string[];
+  validatedResponses: string[];
+  learnerProducedText: string;
+  secondaryResponses?: string[];
+  rehearsalSeconds?: number;
+  selfReviewChecks: string[];
+  rubricSummary: EgyptPerformRubricCheck[];
+  completedAt: string;
+  attemptNumber?: number;
 }
 
 export interface CountryReplayAttempt {
@@ -484,6 +541,9 @@ export interface CountryReplayAttempt {
   egyptCompletedPracticeChallengeIds?: string[];
   egyptCompletedPracticeIds?: string[];
   egyptPracticeJournal?: EgyptPracticeEvidenceRecord[];
+  egyptPerformStarted?: boolean;
+  egyptCompletedPerformIds?: string[];
+  egyptPerformJournal?: EgyptPerformEvidenceRecord[];
 }
 
 export interface CountryReplayHistoryRecord {

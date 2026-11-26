@@ -14,6 +14,8 @@ import {
   isAustraliaMissionCompleted,
   isEgyptBuildCompleted,
   isEgyptDiscoverCompleted,
+  isEgyptPerformEvidenceComplete,
+  isEgyptPerformStarted,
   isEgyptPracticeCompleted,
   isJaipurMissionCompleted,
   isKenyaMissionCompleted,
@@ -178,8 +180,14 @@ function stripUnknownAndUnsafeKeys(raw: Record<string, unknown>): {
 
 function resolveFrontierLabel(progress: LocalProgressV1): string {
   const egyptEntry = progress.missionProgress[EGYPT_MISSION_ID];
+  if (isEgyptPerformEvidenceComplete(progress)) {
+    return 'Egypt · PERFORM Complete (Final Self-Reflection Pending)';
+  }
+  if (isEgyptPerformStarted(progress)) {
+    return 'Egypt · PERFORM Stage';
+  }
   if (isEgyptPracticeCompleted(progress)) {
-    return 'Egypt · PRACTICE Completed (PERFORM Coming Soon)';
+    return 'Egypt · PRACTICE Completed (PERFORM Ready)';
   }
   if (isEgyptBuildCompleted(progress)) {
     return 'Egypt · PRACTICE Stage';

@@ -206,6 +206,10 @@ export interface EgyptNextMissionState {
   practiceStarted?: boolean;
   completedPracticeIds?: EgyptLandmarkId[];
   practiceCompleted?: boolean;
+  performUnlocked?: boolean;
+  performStarted?: boolean;
+  completedPerformIds?: EgyptLandmarkId[];
+  performEvidenceComplete?: boolean;
 }
 
 export type NextMissionWorldState =
@@ -1026,15 +1030,47 @@ export function resolveNextMissionTarget(
         },
       };
     }
+    if (!s.performStarted) {
+      const targetId: EgyptPoiId = 'npc_layla';
+      return {
+        status: 'actionable',
+        targetId,
+        target: pickTarget(targetId),
+        stageLabel: 'PERFORM',
+        reasonKey: 'start_perform',
+        message: {
+          en: 'Talk to Dr. Layla Hassan to enter Stage 4: PERFORM — The Royal Expedition Grand Showcase.',
+          th: 'คุยกับ ดร.ไลลา ฮัสซัน เพื่อเข้าสู่ด่านที่ 4: PERFORM — การนำเสนอใหญ่คณะสำรวจหลวง',
+        },
+      };
+    }
+    if (!s.performEvidenceComplete) {
+      const completedPerform = s.completedPerformIds ?? [];
+      const nextLandmarkId =
+        EGYPT_RECOMMENDED_ROUTE.find((id) => !completedPerform.includes(id)) ??
+        EGYPT_RECOMMENDED_ROUTE[0];
+      const target = pickTarget(nextLandmarkId);
+      return {
+        status: 'actionable',
+        targetId: nextLandmarkId,
+        target,
+        stageLabel: 'PERFORM',
+        reasonKey: 'perform_station',
+        message: {
+          en: `Next PERFORM mission: ${target?.title.en ?? nextLandmarkId}`,
+          th: `ภารกิจ PERFORM ถัดไป: ${target?.title.th ?? nextLandmarkId}`,
+        },
+      };
+    }
     return {
       status: 'coming_soon',
       targetId: null,
       target: null,
       stageLabel: 'PERFORM',
-      reasonKey: 'egypt_perform_coming_soon',
+      reasonKey: 'perform_reflection',
       message: {
-        en: 'Stage 3 PRACTICE completed (+50 XP)! Stage 4: PERFORM (Chamber of Wisdom & Passport Stamp) opens next.',
-        th: 'พิชิตด่าน PRACTICE ครบแล้ว (+50 XP)! ด่านที่ 4: PERFORM กำลังจะเปิดในบทถัดไป',
+        en: 'All 5 PERFORM Showcase missions complete! Final Self-Reflection & Passport Stamp open in Phase 5F (Chamber remains sealed).',
+        th: 'ส่งหลักฐาน PERFORM ครบ 5 ภารกิจแล้ว! แบบสะท้อนคิดขั้นสุดท้ายและตราประทับจะเปิดใน Phase 5F (ประตูโถงยังปิดผนึก)',
       },
     };
   }

@@ -10,6 +10,7 @@ import type {
   AvatarConfig,
   CountryId,
   EgyptInstructionJournalRecord,
+  EgyptPerformEvidenceRecord,
   EgyptPracticeEvidenceRecord,
   LocalProgressV1,
   QaLaunchRequest,
@@ -63,12 +64,15 @@ import {
   getEgyptCompletedBuildChallengeIds,
   getEgyptCompletedBuildIds,
   getEgyptCompletedDiscoverIds,
+  getEgyptCompletedPerformIds,
   getEgyptCompletedPracticeChallengeIds,
   getEgyptCompletedPracticeIds,
   getEgyptMetNpcIds,
   getEgyptNextBuildLandmarkId,
   getEgyptNextDiscoverLandmarkId,
+  getEgyptNextPerformLandmarkId,
   getEgyptNextPracticeLandmarkId,
+  getEgyptPerformPortfolio,
   getEgyptPracticeJournal,
   getEgyptVisitedLandmarkIds,
   getJaipurEffectiveEntry,
@@ -92,6 +96,9 @@ import {
   isEgyptBuildUnlocked,
   isEgyptDiscoverCompleted,
   isEgyptDiscoverStarted,
+  isEgyptPerformEvidenceComplete,
+  isEgyptPerformStarted,
+  isEgyptPerformUnlocked,
   isEgyptPracticeCompleted,
   isEgyptPracticeStarted,
   isEgyptPracticeUnlocked,
@@ -129,6 +136,7 @@ import {
   markScotlandNpcMet,
   markScotlandPoiExplored,
   recordEgyptBuildChallenge,
+  recordEgyptPerformMissionEvidence,
   recordEgyptPracticeChallenge,
   resetProgressStorage,
   restartCountryReplayAttempt,
@@ -144,6 +152,7 @@ import {
   startCountryReplay,
   startEgyptBuildMission,
   startEgyptDiscoveryMission,
+  startEgyptPerformMission,
   startEgyptPracticeMission,
   startJaipurSpotAndSpeak,
   startKenyaBuildMission,
@@ -994,6 +1003,17 @@ export default function App() {
     return !wasCompleted && isNowCompleted;
   };
 
+  const handleStartEgyptPerform = () => {
+    setProgress((prev) => startEgyptPerformMission(prev));
+  };
+
+  const handleRecordEgyptPerformEvidence = (
+    landmarkId: EgyptLandmarkId,
+    record: EgyptPerformEvidenceRecord,
+  ) => {
+    setProgress((prev) => recordEgyptPerformMissionEvidence(prev, landmarkId, record));
+  };
+
   const handleRequestReplayCountry = (countryId: CountryId) => {
     if (!canReplayCountry(progress, countryId)) return;
     voxAudio.playSfx('click', progress.audioPrefs.sfxEnabled, resolvedAppearance);
@@ -1202,6 +1222,12 @@ export default function App() {
   const egyptNextPracticeLandmarkId = getEgyptNextPracticeLandmarkId(progress);
   const egyptPracticeCompleted = isEgyptPracticeCompleted(progress);
   const egyptPracticeJournal = getEgyptPracticeJournal(progress);
+  const egyptPerformUnlocked = isEgyptPerformUnlocked(progress);
+  const egyptPerformStarted = isEgyptPerformStarted(progress);
+  const egyptCompletedPerformIds = getEgyptCompletedPerformIds(progress);
+  const egyptNextPerformLandmarkId = getEgyptNextPerformLandmarkId(progress);
+  const egyptPerformEvidenceComplete = isEgyptPerformEvidenceComplete(progress);
+  const egyptPerformPortfolio = getEgyptPerformPortfolio(progress);
 
   const sceneMode = progress.currentRoute === 'welcome' ? 'title' : 'map';
   const copy = GAME_COPY[progress.uiLanguage];
@@ -1762,6 +1788,12 @@ export default function App() {
           nextPracticeLandmarkId={egyptNextPracticeLandmarkId}
           practiceCompleted={egyptPracticeCompleted}
           practiceJournal={egyptPracticeJournal}
+          performUnlocked={egyptPerformUnlocked}
+          performStarted={egyptPerformStarted}
+          completedPerformIds={egyptCompletedPerformIds}
+          nextPerformLandmarkId={egyptNextPerformLandmarkId}
+          performEvidenceComplete={egyptPerformEvidenceComplete}
+          performPortfolio={egyptPerformPortfolio}
           onStartDiscovery={handleStartEgyptDiscovery}
           onCompleteDiscoveryMission={handleCompleteEgyptDiscoveryMission}
           onStartBuild={handleStartEgyptBuild}
@@ -1770,6 +1802,8 @@ export default function App() {
           onStartPractice={handleStartEgyptPractice}
           onRecordPracticeChallenge={handleRecordEgyptPracticeChallenge}
           onCompletePracticeMission={handleCompleteEgyptPracticeMission}
+          onStartPerform={handleStartEgyptPerform}
+          onRecordPerformEvidence={handleRecordEgyptPerformEvidence}
           onMarkNpcMet={handleMarkEgyptNpcMet}
           onMarkPoiExplored={handleMarkEgyptPoiExplored}
           onWebGLFailure={() => {

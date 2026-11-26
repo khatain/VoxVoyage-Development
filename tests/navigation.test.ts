@@ -760,10 +760,60 @@ describe('Phase NAV-1: Global Auto-Walk & Smart Navigation', () => {
         practiceCompleted: true,
       },
     });
-    assert.equal(egyptPerformPreview.status, 'coming_soon');
+    assert.equal(egyptPerformPreview.status, 'actionable');
     assert.equal(egyptPerformPreview.stageLabel, 'PERFORM');
-    assert.equal(egyptPerformPreview.reasonKey, 'egypt_perform_coming_soon');
-    assert.equal(egyptPerformPreview.targetId, null);
+    assert.equal(egyptPerformPreview.reasonKey, 'start_perform');
+    assert.equal(egyptPerformPreview.targetId, 'npc_layla');
+
+    const egyptPerformReflectionPending = resolveNextMissionTarget({
+      worldId: 'egypt',
+      state: {
+        countryUnlocked: true,
+        discoverStarted: true,
+        completedDiscoverIds: [
+          'nile_expedition_camp',
+          'giza_pyramid_plaza',
+          'ancient_scribe_workshop',
+          'temple_of_the_sun',
+          'chamber_of_wisdom',
+        ],
+        discoverCompleted: true,
+        buildUnlocked: true,
+        buildStarted: true,
+        completedBuildIds: [
+          'nile_expedition_camp',
+          'giza_pyramid_plaza',
+          'ancient_scribe_workshop',
+          'temple_of_the_sun',
+          'chamber_of_wisdom',
+        ],
+        buildCompleted: true,
+        practiceUnlocked: true,
+        practiceStarted: true,
+        completedPracticeIds: [
+          'nile_expedition_camp',
+          'giza_pyramid_plaza',
+          'ancient_scribe_workshop',
+          'temple_of_the_sun',
+          'chamber_of_wisdom',
+        ],
+        practiceCompleted: true,
+        performUnlocked: true,
+        performStarted: true,
+        completedPerformIds: [
+          'nile_expedition_camp',
+          'giza_pyramid_plaza',
+          'ancient_scribe_workshop',
+          'temple_of_the_sun',
+          'chamber_of_wisdom',
+        ],
+        performEvidenceComplete: true,
+      },
+    });
+    assert.equal(egyptPerformReflectionPending.status, 'coming_soon');
+    assert.equal(egyptPerformReflectionPending.stageLabel, 'PERFORM');
+    assert.equal(egyptPerformReflectionPending.reasonKey, 'perform_reflection');
+    assert.equal(egyptPerformReflectionPending.targetId, null);
   });
 
   it('provides status tag precedence and full bilingual EN/TH navigation copy', () => {

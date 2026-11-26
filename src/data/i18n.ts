@@ -1083,6 +1083,27 @@ export const GAME_COPY: Record<
     egyptPracticeJournalTabPractice: string;
     egyptPracticeJournalEmptyState: string;
     egyptPracticeChamberOutsideNote: string;
+    // Phase 5E.1: Egypt Stage 4 PERFORM — The Royal Expedition Grand Showcase
+    egyptPerformStageBadge: string;
+    egyptPerformStageTitle: string;
+    egyptPerformMissionsProgressLabel: string;
+    egyptPerformStartButton: string;
+    egyptPerformPlayMissionButton: string;
+    egyptPerformReviewMissionButton: string;
+    egyptPerformCompletedBadge: string;
+    egyptPerformLockedNeedPractice: string;
+    egyptPerformLockedNeedLayla: string;
+    egyptPerformLockedPrevious: string;
+    egyptPerformZeroXpNote: string;
+    egyptPerformOpenPortfolioButton: string;
+    egyptPerformJournalTabPerform: string;
+    egyptPerformPortfolioEmptyState: string;
+    egyptPerformChamberOutsideNote: string;
+    egyptPerformViewSummaryButton: string;
+    egyptPerformEvidenceCompleteTitle: string;
+    egyptPerformReflectionPendingTitle: string;
+    egyptPerformReflectionPendingDesc: string;
+    egyptPerformGuideCardDesc: string;
     portableProgressButton: string;
     portableProgressTitle: string;
     portableProgressSubtitle: string;
@@ -2224,6 +2245,26 @@ export const GAME_COPY: Record<
     egyptPracticeJournalTabPractice: 'Stage 3 · Academy Log',
     egyptPracticeJournalEmptyState: 'No Academy practice logs yet. Complete challenges inside Stage 3: PRACTICE to record your field simulations here!',
     egyptPracticeChamberOutsideNote: 'Outside the still-sealed Chamber of Wisdom door: master Stage 3 Commander training here. Entering the Chamber unlocks in Stage 4: PERFORM!',
+    egyptPerformStageBadge: 'Stage 4 · PERFORM',
+    egyptPerformStageTitle: 'The Royal Expedition Grand Showcase',
+    egyptPerformMissionsProgressLabel: 'Grand Showcase Missions',
+    egyptPerformStartButton: 'Begin Stage 4: PERFORM (+0 XP Now)',
+    egyptPerformPlayMissionButton: 'Play PERFORM Mission',
+    egyptPerformReviewMissionButton: 'Review / Revise Mission',
+    egyptPerformCompletedBadge: 'PERFORM Recorded',
+    egyptPerformLockedNeedPractice: 'Complete Stage 3: PRACTICE first to unlock Stage 4: PERFORM.',
+    egyptPerformLockedNeedLayla: 'Talk to Dr. Layla Hassan (or open the Grand Showcase) to begin Stage 4: PERFORM.',
+    egyptPerformLockedPrevious: 'Complete previous showcase mission first:',
+    egyptPerformZeroXpNote: '+0 XP & 0 Passport Stamps in Phase 5E.1 — Chamber stays sealed until Final Self-Reflection in Phase 5F.',
+    egyptPerformOpenPortfolioButton: 'Performance Portfolio',
+    egyptPerformJournalTabPerform: 'Stage 4 · Showcase Portfolio',
+    egyptPerformPortfolioEmptyState: 'No Stage 4 Showcase evidence recorded yet. Complete missions inside Stage 4: PERFORM to build your portfolio here!',
+    egyptPerformChamberOutsideNote: 'Staged outside the still-sealed Chamber of Wisdom: present your Royal Expedition Showcase here. Chamber unsealing & Final Reflection open in Phase 5F.',
+    egyptPerformViewSummaryButton: 'Showcase Evidence Summary',
+    egyptPerformEvidenceCompleteTitle: 'Performance Evidence Complete — Final Self-Reflection Coming Soon',
+    egyptPerformReflectionPendingTitle: '5/5 Showcase Missions Recorded · Awaiting Phase 5F Final Self-Reflection',
+    egyptPerformReflectionPendingDesc: 'Your XP stays preserved at 1,150 and Passport Stamps remain 4/5. The Chamber of Wisdom stays sealed until Final Self-Reflection opens in Phase 5F.',
+    egyptPerformGuideCardDesc: 'Complete 5 authentic English showcase missions outside the Chamber of Wisdom (+0 XP until Final Self-Reflection in Phase 5F).',
     portableProgressButton: 'Backup / Portable Progress',
     portableProgressTitle: 'Portable Progress Export & Import',
     portableProgressSubtitle: 'Save your real explorer progress as a local JSON file or restore it in another workspace.',
@@ -2272,7 +2313,7 @@ export const GAME_COPY: Record<
     qaDifficultyLabel: 'Difficulty Mode',
     qaActivityLabel: 'Activity / Station',
     qaComingSoonBadge: 'Coming Soon',
-    qaComingSoonBlockedNote: 'Egypt PRACTICE and PERFORM are not implemented yet and remain Coming Soon.',
+    qaComingSoonBlockedNote: 'Egypt Final Self-Reflection & Chamber Unsealing belong to Phase 5F and remain Coming Soon.',
     qaStartStageButton: 'Start Selected Stage',
     qaResumeSessionButton: 'Resume QA Session',
     qaResetSessionButton: 'Reset QA Session',
@@ -3364,6 +3405,26 @@ export const GAME_COPY: Record<
     egyptPracticeJournalTabPractice: 'ด่าน 3 · บันทึกการฝึก',
     egyptPracticeJournalEmptyState: 'ยังไม่มีบันทึกการฝึกภาคสนาม พิชิตภารกิจในด่านที่ 3: PRACTICE เพื่อบันทึกผลการฝึกที่นี่!',
     egyptPracticeChamberOutsideNote: 'หน้าประตูโถงแห่งปัญญาที่ยังปิดผนึก: ฝึกบัญชาการแผนสำรวจได้ที่นี่ (การเปิดประตูเข้าสู่โถงด้านในจะเปิดในด่าน 4: PERFORM)',
+    egyptPerformStageBadge: 'ด่าน 4 · PERFORM',
+    egyptPerformStageTitle: 'การนำเสนอใหญ่คณะสำรวจหลวง',
+    egyptPerformMissionsProgressLabel: 'ภารกิจ Grand Showcase',
+    egyptPerformStartButton: 'เริ่มด่านที่ 4: PERFORM (+0 XP ตอนนี้)',
+    egyptPerformPlayMissionButton: 'ทำภารกิจ PERFORM',
+    egyptPerformReviewMissionButton: 'ทบทวน / แก้ไขภารกิจ',
+    egyptPerformCompletedBadge: 'บันทึก PERFORM แล้ว',
+    egyptPerformLockedNeedPractice: 'กรุณาผ่านด่านที่ 3: PRACTICE ให้ครบก่อนเพื่อปลดล็อกด่าน 4: PERFORM',
+    egyptPerformLockedNeedLayla: 'คุยกับ ดร.ไลลา ฮัสซัน (หรือเปิดด่านนำเสนอใหญ่) เพื่อเริ่มด่านที่ 4: PERFORM',
+    egyptPerformLockedPrevious: 'กรุณาผ่านภารกิจนำเสนอก่อนหน้าก่อน:',
+    egyptPerformZeroXpNote: '+0 XP และ 0 ตราพาสปอร์ตใน Phase 5E.1 — ประตูโถงยังปิดผนึกจนกว่าจะถึงแบบสะท้อนคิดขั้นสุดท้ายใน Phase 5F',
+    egyptPerformOpenPortfolioButton: 'แฟ้มผลงานการนำเสนอ',
+    egyptPerformJournalTabPerform: 'ด่าน 4 · แฟ้มผลงาน Showcase',
+    egyptPerformPortfolioEmptyState: 'ยังไม่มีบันทึกหลักฐานด่าน 4 ทำภารกิจในด่านที่ 4: PERFORM เพื่อเก็บผลงานภาษาอังกฤษของคุณที่นี่!',
+    egyptPerformChamberOutsideNote: 'จัดแสดงหน้าประตูโถงแห่งปัญญาที่ยังปิดผนึก: นำเสนอแผนสำรวจใหญ่ได้ที่นี่ (การเปิดประตูโถงและสะท้อนคิดขั้นสุดท้ายจะเปิดใน Phase 5F)',
+    egyptPerformViewSummaryButton: 'สรุปหลักฐาน Grand Showcase',
+    egyptPerformEvidenceCompleteTitle: 'ส่งหลักฐานครบถ้วน — แบบสะท้อนคิดขั้นสุดท้ายเปิดเร็ว ๆ นี้',
+    egyptPerformReflectionPendingTitle: 'บันทึกครบ 5/5 ภารกิจแล้ว · รอแบบสะท้อนคิดขั้นสุดท้ายใน Phase 5F',
+    egyptPerformReflectionPendingDesc: 'คะแนน XP ยังคงอยู่ที่ 1,150 และตราประทับพาสปอร์ตยังอยู่ที่ 4/5 ประตูโถงแห่งปัญญายังคงปิดผนึกจนกว่า Phase 5F จะเปิดใช้งาน',
+    egyptPerformGuideCardDesc: 'ทำภารกิจสื่อสารภาษาอังกฤษจริง 5 ด่านหน้าประตูโถงแห่งปัญญา (+0 XP จนกว่าจะทำแบบสะท้อนคิดขั้นสุดท้ายใน Phase 5F)',
     portableProgressButton: 'สำรอง / ย้ายความคืบหน้า (JSON)',
     portableProgressTitle: 'ส่งออกและนำเข้าความคืบหน้าแบบพกพา',
     portableProgressSubtitle: 'บันทึกความคืบหน้าของผู้เล่นจริงเป็นไฟล์ JSON บนเครื่อง หรือกู้คืนเมื่อเปลี่ยนเวิร์กสเปซ',
@@ -3412,7 +3473,7 @@ export const GAME_COPY: Record<
     qaDifficultyLabel: 'ระดับภาษา (CEFR)',
     qaActivityLabel: 'กิจกรรม / ด่านย่อย',
     qaComingSoonBadge: 'เร็ว ๆ นี้ (Coming Soon)',
-    qaComingSoonBlockedNote: 'ด่าน PRACTICE และ PERFORM ของอียิปต์ยังไม่เปิดให้เล่น และยังคงสถานะ Coming Soon',
+    qaComingSoonBlockedNote: 'แบบสะท้อนคิดขั้นสุดท้ายและการเปิดผนึกโถงแห่งปัญญาของอียิปต์อยู่ใน Phase 5F และยังคงสถานะ Coming Soon',
     qaStartStageButton: 'เปิดด่านที่เลือกทันที',
     qaResumeSessionButton: 'เล่นต่อในเซสชัน QA',
     qaResetSessionButton: 'รีเซ็ตเซสชัน QA',

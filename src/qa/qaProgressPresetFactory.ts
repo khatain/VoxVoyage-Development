@@ -57,6 +57,13 @@ import {
   makeEgyptPracticeRecordId,
 } from '../data/egyptPractice';
 import {
+  EGYPT_PERFORM_MISSION_ID_BY_LANDMARK,
+  EGYPT_PERFORM_MISSION_ORDER,
+  EGYPT_PERFORM_TASK_IDS_BY_LANDMARK,
+  getEgyptPerformMissionMeta,
+  makeEgyptPerformRecordId,
+} from '../data/egyptPerform';
+import {
   collectJaipurVocabObject,
   completeAustraliaBuildMission,
   completeAustraliaDiscoveryMission,
@@ -84,6 +91,7 @@ import {
   markScotlandNpcMet,
   migrateAndValidateProgress,
   recordEgyptBuildChallenge,
+  recordEgyptPerformMissionEvidence,
   recordEgyptPracticeChallenge,
   startAustraliaBuildMission,
   startAustraliaDiscoveryMission,
@@ -91,6 +99,7 @@ import {
   startAustraliaPracticeMission,
   startEgyptBuildMission,
   startEgyptDiscoveryMission,
+  startEgyptPerformMission,
   startEgyptPracticeMission,
   startJaipurSpotAndSpeak,
   startKenyaBuildMission,
@@ -102,6 +111,7 @@ import {
   startScotlandPerformMission,
   startScotlandPracticeMission,
 } from '../utils/progressStorage';
+import type { EgyptPerformEvidenceRecord } from '../types/game';
 
 export type QaPresetId =
   | 'new_explorer'
@@ -109,6 +119,7 @@ export type QaPresetId =
   | 'egypt_discover_completed'
   | 'egypt_build_completed'
   | 'egypt_practice_completed'
+  | 'egypt_perform_awaiting_reflection'
   | 'selected_activity';
 
 export interface QaLaunchTarget {
@@ -182,12 +193,25 @@ export const QA_PRESET_CATALOG: QaPresetMeta[] = [
   {
     id: 'egypt_practice_completed',
     label: {
-      en: 'E · Egypt PRACTICE Completed',
-      th: 'E · ผ่านด่านอียิปต์ PRACTICE แล้ว',
+      en: 'E · Egypt PRACTICE Completed (PERFORM Ready)',
+      th: 'E · ผ่านด่านอียิปต์ PRACTICE แล้ว (พร้อมเข้า PERFORM)',
     },
     summary: {
-      en: '1,150 XP · 4 Stamps · 30/30 PRACTICE challenges + 30 Academy logs · PERFORM Coming Soon',
-      th: '1,150 XP · 4 ตราประทับ · 30/30 โจทย์ PRACTICE + 30 บันทึกสถาบัน · PERFORM เร็ว ๆ นี้',
+      en: '1,150 XP · 4 Stamps · 30/30 PRACTICE challenges + 30 Academy logs · Stage 4 PERFORM ready',
+      th: '1,150 XP · 4 ตราประทับ · 30/30 โจทย์ PRACTICE + 30 บันทึกสถาบัน · พร้อมเริ่ม PERFORM',
+    },
+    expectedXp: 1150,
+    expectedStamps: 4,
+  },
+  {
+    id: 'egypt_perform_awaiting_reflection',
+    label: {
+      en: 'F · Egypt PERFORM Complete (Reflection Pending)',
+      th: 'F · ผ่านภารกิจ PERFORM ครบ 5 จุด (รอ Final Reflection)',
+    },
+    summary: {
+      en: '1,150 XP · 4 Stamps · 5/5 PERFORM Showcase evidence · Chamber sealed · Reflection Phase 5F pending',
+      th: '1,150 XP · 4 ตราประทับ · หลักฐาน PERFORM ครบ 5 ภารกิจ · ประตูโถงยังปิดผนึก · รอ Phase 5F',
     },
     expectedXp: 1150,
     expectedStamps: 4,
@@ -605,6 +629,87 @@ function advanceEgyptPracticeStation(
   return completeEgyptPracticeMission(p, landmarkId);
 }
 
+function buildCanonicalEgyptPerformRecord(
+  landmarkId: EgyptLandmarkId,
+  cefrMode: 'a2' | 'b1',
+): EgyptPerformEvidenceRecord {
+  const meta = getEgyptPerformMissionMeta(landmarkId);
+  const performMissionId = EGYPT_PERFORM_MISSION_ID_BY_LANDMARK[landmarkId];
+  const sampleLines: Record<EgyptLandmarkId, string> = {
+    nile_expedition_camp:
+      cefrMode === 'b1'
+        ? 'Before departing Nile Camp, verify water bottles, sun hats, notebooks, and workshop passes because afternoon desert heat rises quickly.'
+        : 'Welcome to Nile Camp! First, pack water, a sun hat, and a notebook, then check the map before leaving.',
+    giza_pyramid_plaza:
+      cefrMode === 'b1'
+        ? 'Instead of crossing the blocked eastern dunes, head north to the North Viewing Deck first and then turn east and south to the Oasis Rest Point.'
+        : 'Start at Camp Gate, go north around the blocked sand dunes, then go east to Great Pyramid Plaza.',
+    ancient_scribe_workshop:
+      cefrMode === 'b1'
+        ? 'Before laying down the replica papyrus, brush the tray clean; once it is flat, secure the corner tabs and wait until the label ink dries before closing the cover.'
+        : 'First, brush dust off the wooden tray. Next, lay the replica flat, then seal the corners, and finally add the label card.',
+    temple_of_the_sun:
+      cefrMode === 'b1'
+        ? 'Welcome! We kindly ask visitors to stay on the marked stone walkways and you must not touch the stone reliefs because oil wears ancient carvings away.'
+        : 'Welcome! Please stay on the marked walkway and you must not touch the carvings. You should bring water and can take photos here.',
+    chamber_of_wisdom:
+      cefrMode === 'b1'
+        ? 'Good day panel. Before leaving Nile Camp we check supplies, follow the northern Giza route around blocked dunes, complete our replica sequence safely, and respect temple rules outside the sealed Chamber entrance.'
+        : 'Hello panel! First pack water and hats, walk north and east around blocked dunes, brush the replica tray before labeling, and please stay on temple walkways. Thank you!',
+  };
+  return {
+    id: makeEgyptPerformRecordId(performMissionId),
+    missionId: EGYPT_MISSION_ID,
+    performMissionId,
+    landmarkId,
+    missionTitle: meta.title,
+    cefrLevel: cefrMode,
+    practiceMode: 'written_or_rehearsal',
+    completedTaskIds: [...EGYPT_PERFORM_TASK_IDS_BY_LANDMARK[landmarkId]],
+    validatedResponses: [
+      `Validated ${meta.title.en} (${cefrMode.toUpperCase()})`,
+    ],
+    learnerProducedText: sampleLines[landmarkId],
+    rehearsalSeconds: 32,
+    selfReviewChecks: [
+      'checked_clarity',
+      'addressed_scenario',
+      'checked_sequence_or_rules',
+    ],
+    rubricSummary: [
+      {
+        criterionId: 'task_achievement',
+        level: 'strong',
+        feedback: {
+          en: 'Completed interactive scenario tasks and English delivery.',
+          th: 'ทำภารกิจจำลองและส่งงานสื่อสารภาษาอังกฤษครบถ้วน',
+        },
+      },
+      {
+        criterionId: 'language_clarity',
+        level: 'strong',
+        feedback: {
+          en: 'Clear wording appropriate for expedition communication.',
+          th: 'สื่อสารชัดเจนเหมาะสมกับบริบทการสำรวจ',
+        },
+      },
+    ],
+    completedAt: QA_SYNTHETIC_TIMESTAMP,
+  };
+}
+
+function advanceEgyptPerformStation(
+  start: LocalProgressV1,
+  landmarkId: EgyptLandmarkId,
+  cefrMode: 'a2' | 'b1' = 'a2',
+): LocalProgressV1 {
+  return recordEgyptPerformMissionEvidence(
+    start,
+    landmarkId,
+    buildCanonicalEgyptPerformRecord(landmarkId, cefrMode),
+  );
+}
+
 /**
  * Generates validated canonical synthetic LocalProgressV1 presets.
  * Always passes output through migrateAndValidateProgress so no invalid shortcuts exist.
@@ -703,6 +808,36 @@ export function buildQaPresetProgress(
     p = startEgyptPracticeMission(p);
     for (const landmarkId of EGYPT_PRACTICE_MISSION_ORDER) {
       p = advanceEgyptPracticeStation(p, landmarkId, cefr);
+    }
+    return finalize({
+      ...p,
+      selectedCountryId: 'egypt',
+      currentRoute: 'country-lobby',
+    });
+  }
+
+  if (presetId === 'egypt_perform_awaiting_reflection') {
+    let p = buildQaAvatarBase('QA Explorer (EGY Perform Complete)');
+    p = advanceIndiaComplete(p);
+    p = advanceKenyaComplete(p);
+    p = advanceScotlandComplete(p);
+    p = advanceAustraliaComplete(p, cefr);
+    p = markEgyptEntered(p);
+    p = startEgyptDiscoveryMission(p);
+    for (const id of EGYPT_DISCOVER_MISSION_ORDER) {
+      p = completeEgyptDiscoveryMission(p, id);
+    }
+    p = startEgyptBuildMission(p);
+    for (const landmarkId of EGYPT_BUILD_MISSION_ORDER) {
+      p = advanceEgyptBuildStation(p, landmarkId, cefr);
+    }
+    p = startEgyptPracticeMission(p);
+    for (const landmarkId of EGYPT_PRACTICE_MISSION_ORDER) {
+      p = advanceEgyptPracticeStation(p, landmarkId, cefr);
+    }
+    p = startEgyptPerformMission(p);
+    for (const landmarkId of EGYPT_PERFORM_MISSION_ORDER) {
+      p = advanceEgyptPerformStation(p, landmarkId, cefr);
     }
     return finalize({
       ...p,
@@ -954,6 +1089,30 @@ export function buildSelectedActivityQaProgress(
       for (const id of EGYPT_PRACTICE_MISSION_ORDER) {
         if (id === activityId) break;
         p = advanceEgyptPracticeStation(p, id, cefrMode);
+      }
+    }
+    return migrateAndValidateProgress({
+      ...p,
+      uiLanguage,
+      selectedCountryId: 'egypt',
+      currentRoute: 'country-lobby',
+    });
+  }
+
+  // Egypt PERFORM
+  for (const id of EGYPT_PRACTICE_MISSION_ORDER) {
+    p = advanceEgyptPracticeStation(p, id, cefrMode);
+  }
+  p = startEgyptPerformMission(p);
+  if (stageId === 'perform') {
+    if (activityId === 'portfolio') {
+      for (const id of EGYPT_PERFORM_MISSION_ORDER) {
+        p = advanceEgyptPerformStation(p, id, cefrMode);
+      }
+    } else if (activityId) {
+      for (const id of EGYPT_PERFORM_MISSION_ORDER) {
+        if (id === activityId) break;
+        p = advanceEgyptPerformStation(p, id, cefrMode);
       }
     }
   }

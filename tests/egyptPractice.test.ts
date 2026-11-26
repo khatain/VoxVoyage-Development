@@ -364,7 +364,7 @@ describe('Egypt Phase 5D.1 — Royal Expedition Training Academy (Stage 3 PRACTI
       false,
     );
     assert.equal(isEgyptPracticeCompleted(p), true);
-    assert.equal(isQaTargetImplemented('egypt', 'perform'), false);
+    assert.equal(isQaTargetImplemented('egypt', 'perform'), true);
     assert.equal(getEgyptCompletedPracticeChallengeIds(p).length, 30);
     assert.equal(getEgyptPracticeJournal(p).length, 30);
 

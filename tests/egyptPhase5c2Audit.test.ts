@@ -302,7 +302,7 @@ describe('Egypt Phase 5C.2 — Full BUILD Acceptance, Resume, Refresh & PRACTICE
     assert.equal(isEgyptBuildCompleted(refreshed), true);
     assert.equal(getEgyptBuildJournal(refreshed).length, 30);
 
-    // Stage 3 PRACTICE (Phase 5D.1) is now implemented while Stage 4 PERFORM stays Coming Soon
+    // Stage 3 PRACTICE (Phase 5D.1) and Stage 4 PERFORM (Phase 5E.1) are wired, while Phase 5F Final Reflection remains locked
     const root = process.cwd();
     const guideSrc = fs.readFileSync(
       path.join(root, 'src/components/egypt/EgyptExpeditionGuideModal.tsx'),
@@ -313,7 +313,8 @@ describe('Egypt Phase 5C.2 — Full BUILD Acceptance, Resume, Refresh & PRACTICE
       'utf8',
     );
     assert.equal(guideSrc.includes('egyptGuideLockedFuturePhase'), true);
-    assert.equal(worldSrc.includes('egyptPracticePerformComingSoonTitle'), true);
+    assert.equal(worldSrc.includes('EgyptPerformModal'), true);
     assert.equal(fs.existsSync(path.join(root, 'src/components/egypt/EgyptPracticeModal.tsx')), true);
+    assert.equal(fs.existsSync(path.join(root, 'src/components/egypt/EgyptPerformModal.tsx')), true);
   });
 });

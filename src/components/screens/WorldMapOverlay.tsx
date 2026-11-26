@@ -156,11 +156,13 @@ export function WorldMapOverlay({
           egyptEntry?.egyptDiscoverStarted ||
           egyptEntry?.egyptBuildStarted ||
           egyptEntry?.egyptPracticeStarted ||
+          egyptEntry?.egyptPerformStarted ||
           (egyptEntry?.egyptExploredPoiIds?.length ?? 0) > 0 ||
           (egyptEntry?.egyptMetNpcIds?.length ?? 0) > 0 ||
           (egyptEntry?.egyptCompletedDiscoverIds?.length ?? 0) > 0 ||
           (egyptEntry?.egyptCompletedBuildIds?.length ?? 0) > 0 ||
           (egyptEntry?.egyptCompletedPracticeIds?.length ?? 0) > 0 ||
+          (egyptEntry?.egyptCompletedPerformIds?.length ?? 0) > 0 ||
           egyptEntry?.completedActivityIds?.includes(EGYPT_DISCOVERY_ACTIVITY_ID) ||
           egyptEntry?.completedActivityIds?.includes(EGYPT_BUILD_ACTIVITY_ID) ||
           egyptEntry?.completedActivityIds?.includes(EGYPT_PRACTICE_ACTIVITY_ID),

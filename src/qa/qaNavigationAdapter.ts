@@ -2,6 +2,7 @@ import type { CountryId, LearningStageId, LocalProgressV1 } from '../types/game'
 import { EGYPT_DISCOVER_MISSIONS } from '../data/egyptDiscover';
 import { EGYPT_BUILD_MISSIONS } from '../data/egyptBuild';
 import { EGYPT_PRACTICE_MISSIONS } from '../data/egyptPractice';
+import { EGYPT_PERFORM_MISSIONS } from '../data/egyptPerform';
 import { AUSTRALIA_DISCOVER_MISSIONS } from '../data/australiaDiscovery';
 import { AUSTRALIA_BUILD_MISSIONS } from '../data/australiaBuild';
 import { AUSTRALIA_PRACTICE_MISSIONS } from '../data/australiaPractice';
@@ -265,11 +266,26 @@ export const QA_WORLD_CATALOG: QaCountryCatalogEntry[] = [
       },
       {
         stageId: 'perform',
-        label: { en: 'Stage 4 · PERFORM (Coming Soon)', th: 'ด่าน 4 · PERFORM (เร็ว ๆ นี้)' },
-        implemented: false,
-        comingSoon: true,
+        label: {
+          en: 'Stage 4 · PERFORM (Grand Showcase)',
+          th: 'ด่าน 4 · PERFORM (การนำเสนอใหญ่)',
+        },
+        implemented: true,
+        comingSoon: false,
         supportsCefrToggle: true,
-        activities: [],
+        activities: [
+          ...EGYPT_PERFORM_MISSIONS.map((m) => ({
+            id: m.landmarkId,
+            label: m.title,
+          })),
+          {
+            id: 'portfolio',
+            label: {
+              en: 'Stage 4 · Performance Portfolio',
+              th: 'แฟ้มผลงานด่านที่ 4 · Performance Portfolio',
+            },
+          },
+        ],
       },
     ],
   },
